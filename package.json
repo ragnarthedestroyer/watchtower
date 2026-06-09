@@ -1,0 +1,30 @@
+{
+  "name": "acki-watchtower",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web and Telegram-based monitoring tool for Acki Nacki wallet/account states, Mobile Verifier epochs, API trust, and snapshot safety.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"lint not configured yet\"",
+    "test": "echo \"tests not configured yet\""
+  },
+  "keywords": [
+    "acki-nacki",
+    "watchtower",
+    "state-v2",
+    "telegram-mini-app",
+    "wallet-monitor"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
