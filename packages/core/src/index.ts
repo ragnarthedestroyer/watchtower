@@ -5,3 +5,4 @@ export * from "./epoch";
 export * from "./snapshot";
 export * from "./watchlist";
 export * from "./config";
+export * from "./validation";

@@ -1,0 +1,11 @@
+{
+  "name": "@watchtower/telegram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@watchtower/core": "workspace:*",
+    "@watchtower/api": "workspace:*",
+    "@watchtower/ui": "workspace:*"
+  }
+}
