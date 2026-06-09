@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+.out/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local editor/system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Runtime/cache
+.cache/
+tmp/
+temp/
+
+# Watchtower local data exports
+*.csv
+*.sqlite
+*.db
+snapshots/
+reports/
