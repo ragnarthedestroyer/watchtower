@@ -1,7 +1,7 @@
 import type {
   Watchlist,
   WatchtowerSnapshot
-} from "../../core/src";
+} from "@watchtower/core";
 
 export type RepositoryResult<T> = {
   ok: boolean;

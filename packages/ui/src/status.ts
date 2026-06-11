@@ -2,7 +2,7 @@ import type {
   ApiTrustStatus,
   EpochStatus,
   SnapshotDecisionMode
-} from "../../core/src";
+} from "@watchtower/core";
 
 export type UiStatusTone = "success" | "warning" | "danger" | "neutral";
 

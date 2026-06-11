@@ -3,8 +3,8 @@ import type {
   ApiHealthSignal,
   MobileVerifierEpoch,
   SnapshotPolicyDecision
-} from "../../core/src";
-import { evaluateApiTrust } from "../../core/src";
+} from "@watchtower/core";
+import { evaluateApiTrust } from "@watchtower/core";
 
 export type BuildHealthResponseInput = {
   apiSignal: ApiHealthSignal;

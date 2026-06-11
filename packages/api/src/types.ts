@@ -4,7 +4,7 @@ import type {
   SnapshotPolicyDecision,
   Watchlist,
   WatchtowerSnapshot
-} from "../../core/src";
+} from "@watchtower/core";
 
 export type ApiResponse<T> = {
   ok: boolean;
