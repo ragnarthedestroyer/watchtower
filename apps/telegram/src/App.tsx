@@ -1,35 +1,11 @@
-import {
-  DEFAULT_WATCHTOWER_CONFIG,
-  evaluateApiTrust,
-  evaluateSnapshotPolicy,
-  type ApiHealthSignal
-} from "@watchtower/core";
+import { buildDemoHealthResponse } from "@watchtower/api";
+import { DEFAULT_WATCHTOWER_CONFIG } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 import { initializeTelegramApp } from "./telegram";
 
 const telegram = initializeTelegramApp();
-
-const demoApiSignal: ApiHealthSignal = {
-  checkedAt: new Date().toISOString(),
-  reachable: true,
-  httpStatus: 200,
-  responseMs: 530,
-  stale: false
-};
-
-const apiTrust = evaluateApiTrust(demoApiSignal);
-
-const snapshotDecision = evaluateSnapshotPolicy({
-  apiTrustStatus: apiTrust.status,
-  epochStatus: "UNKNOWN",
-  mvRootStatusAgeMinutes: null,
-  successfulWallets: 0,
-  configuredWallets: 0,
-  allBalancesZero: false,
-  decoderConfidence: "unresolved",
-  hasRateLimitSignal: apiTrust.hasRateLimitSignal,
-  hasCloudflareOutageSignal: apiTrust.hasCloudflareOutageSignal
-});
+const health = buildDemoHealthResponse("telegram");
+const snapshotDecision = health.snapshotPolicy;
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -62,19 +38,19 @@ export function App() {
         <article className="status-row">
           <div>
             <span className="card-label">API Trust</span>
-            <strong>{humanStatusLabel(apiTrust.status)}</strong>
+            <strong>{humanStatusLabel(health.apiTrust.status)}</strong>
           </div>
-          <StatusBadge label={humanStatusLabel(apiTrust.status)} tone={apiTrustTone(apiTrust.status)} />
+          <StatusBadge label={humanStatusLabel(health.apiTrust.status)} tone={apiTrustTone(health.apiTrust.status)} />
         </article>
 
         <article className="status-row">
           <div>
             <span className="card-label">Snapshot Mode</span>
-            <strong>{humanStatusLabel(snapshotDecision.mode)}</strong>
+            <strong>{snapshotDecision ? humanStatusLabel(snapshotDecision.mode) : "Unknown"}</strong>
           </div>
           <StatusBadge
-            label={humanStatusLabel(snapshotDecision.mode)}
-            tone={snapshotDecisionTone(snapshotDecision.mode)}
+            label={snapshotDecision ? humanStatusLabel(snapshotDecision.mode) : "Unknown"}
+            tone={snapshotDecision ? snapshotDecisionTone(snapshotDecision.mode) : "warning"}
           />
         </article>
 
@@ -89,10 +65,15 @@ export function App() {
 
       <section className="warning-card">
         <h2>Snapshot safety first</h2>
-        <p>
-          Telegram users should see live read-only signals before any snapshot is saved.
-          Writes remain blocked until API trust, epoch status, and decoder confidence are confirmed.
-        </p>
+        {snapshotDecision && snapshotDecision.reasons.length > 0 ? (
+          <ul>
+            {snapshotDecision.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        ) : (
+          <p>No blocking reasons in the current health response.</p>
+        )}
       </section>
     </main>
   );

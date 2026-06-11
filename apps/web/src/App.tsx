@@ -1,32 +1,9 @@
-import {
-  DEFAULT_WATCHTOWER_CONFIG,
-  evaluateApiTrust,
-  evaluateSnapshotPolicy,
-  type ApiHealthSignal
-} from "@watchtower/core";
+import { buildDemoHealthResponse } from "@watchtower/api";
+import { DEFAULT_WATCHTOWER_CONFIG } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 
-const demoApiSignal: ApiHealthSignal = {
-  checkedAt: new Date().toISOString(),
-  reachable: true,
-  httpStatus: 200,
-  responseMs: 412,
-  stale: false
-};
-
-const apiTrust = evaluateApiTrust(demoApiSignal);
-
-const snapshotDecision = evaluateSnapshotPolicy({
-  apiTrustStatus: apiTrust.status,
-  epochStatus: "UNKNOWN",
-  mvRootStatusAgeMinutes: null,
-  successfulWallets: 0,
-  configuredWallets: 0,
-  allBalancesZero: false,
-  decoderConfidence: "unresolved",
-  hasRateLimitSignal: apiTrust.hasRateLimitSignal,
-  hasCloudflareOutageSignal: apiTrust.hasCloudflareOutageSignal
-});
+const health = buildDemoHealthResponse("web");
+const snapshotDecision = health.snapshotPolicy;
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -47,15 +24,15 @@ export function App() {
       <section className="grid">
         <article className="card">
           <span className="card-label">API Trust</span>
-          <StatusBadge label={humanStatusLabel(apiTrust.status)} tone={apiTrustTone(apiTrust.status)} />
+          <StatusBadge label={humanStatusLabel(health.apiTrust.status)} tone={apiTrustTone(health.apiTrust.status)} />
           <p>Current placeholder signal: reachable HTTP 200.</p>
         </article>
 
         <article className="card">
           <span className="card-label">Snapshot Mode</span>
           <StatusBadge
-            label={humanStatusLabel(snapshotDecision.mode)}
-            tone={snapshotDecisionTone(snapshotDecision.mode)}
+            label={snapshotDecision ? humanStatusLabel(snapshotDecision.mode) : "Unknown"}
+            tone={snapshotDecision ? snapshotDecisionTone(snapshotDecision.mode) : "warning"}
           />
           <p>Snapshots are blocked until epoch and decoder confidence are confirmed.</p>
         </article>
@@ -65,6 +42,19 @@ export function App() {
           <StatusBadge label={humanStatusLabel(DEFAULT_WATCHTOWER_CONFIG.api.addressMode)} tone="warning" />
           <p>Hybrid mode keeps legacy compatibility while preparing for State V2.</p>
         </article>
+      </section>
+
+      <section className="panel">
+        <h2>Why snapshots are currently blocked</h2>
+        {snapshotDecision && snapshotDecision.reasons.length > 0 ? (
+          <ul>
+            {snapshotDecision.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        ) : (
+          <p>No blocking reasons in the current health response.</p>
+        )}
       </section>
 
       <section className="panel">
