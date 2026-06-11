@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
-    "@watchtower/core": "workspace:*"
+    "@watchtower/core": "workspace:*",
+    "@watchtower/db": "workspace:*"
   }
 }
