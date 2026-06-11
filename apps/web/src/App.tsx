@@ -1,17 +1,91 @@
-import { buildDemoHealthResponse, buildDemoSnapshot, buildDemoWatchlists } from "@watchtower/api";
+import { useEffect, useState } from "react";
+import {
+  createWatchtowerApiClient,
+  type HealthResponse,
+  type SnapshotResponse,
+  type WatchlistsResponse
+} from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 
-const health = buildDemoHealthResponse("web");
-const snapshotDecision = health.snapshotPolicy;
-const demoWatchlists = buildDemoWatchlists();
-const latestSnapshot = buildDemoSnapshot("web");
+type AppData = {
+  health: HealthResponse;
+  watchlists: WatchlistsResponse["watchlists"];
+  latestSnapshot: SnapshotResponse["snapshot"];
+};
+
+const apiClient = createWatchtowerApiClient({ runtime: "web" });
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
 }
 
+function LoadingPanel() {
+  return (
+    <main className="page-shell">
+      <section className="hero">
+        <p className="eyebrow">Acki Watchtower</p>
+        <h1>Loading Watchtower status…</h1>
+        <p className="hero-text">Reading the demo API client contract.</p>
+      </section>
+    </main>
+  );
+}
+
+function ErrorPanel(props: { message: string }) {
+  return (
+    <main className="page-shell">
+      <section className="hero">
+        <p className="eyebrow">Acki Watchtower</p>
+        <h1>Unable to load Watchtower status.</h1>
+        <p className="hero-text">{props.message}</p>
+      </section>
+    </main>
+  );
+}
+
 export function App() {
+  const [data, setData] = useState<AppData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadData() {
+      try {
+        const [health, watchlistsResponse, snapshotResponse] = await Promise.all([
+          apiClient.getHealth(),
+          apiClient.getWatchlists(),
+          apiClient.getLatestSnapshot()
+        ]);
+
+        if (!active) return;
+
+        setData({
+          health,
+          watchlists: watchlistsResponse.watchlists,
+          latestSnapshot: snapshotResponse.snapshot
+        });
+      } catch (caughtError) {
+        if (!active) return;
+
+        setError(caughtError instanceof Error ? caughtError.message : "Unknown API client error.");
+      }
+    }
+
+    void loadData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (error) return <ErrorPanel message={error} />;
+  if (!data) return <LoadingPanel />;
+
+  const { health, watchlists, latestSnapshot } = data;
+  const snapshotDecision = health.snapshotPolicy;
+
   return (
     <main className="page-shell">
       <section className="hero">
@@ -27,7 +101,7 @@ export function App() {
         <article className="card">
           <span className="card-label">API Trust</span>
           <StatusBadge label={humanStatusLabel(health.apiTrust.status)} tone={apiTrustTone(health.apiTrust.status)} />
-          <p>Current placeholder signal: reachable HTTP 200.</p>
+          <p>Current data is loaded through the shared Watchtower API client.</p>
         </article>
 
         <article className="card">
@@ -79,7 +153,7 @@ export function App() {
 
       <section className="panel">
         <h2>Demo watchlist</h2>
-        {demoWatchlists.map((watchlist) => (
+        {watchlists.map((watchlist) => (
           <article key={watchlist.id}>
             <h3>{watchlist.name}</h3>
             <p>{watchlist.description}</p>
@@ -112,7 +186,7 @@ export function App() {
       <section className="panel">
         <h2>Next technical target</h2>
         <ul>
-          <li>Add backend health endpoint.</li>
+          <li>Replace demo transport with a deployed API route.</li>
           <li>Add Mobile Verifier epoch reader.</li>
           <li>Add watchlist creation and wallet identity forms.</li>
           <li>Keep all snapshot writes behind policy gates.</li>

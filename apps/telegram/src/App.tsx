@@ -1,19 +1,94 @@
-import { buildDemoHealthResponse, buildDemoSnapshot, buildDemoWatchlists } from "@watchtower/api";
+import { useEffect, useState } from "react";
+import {
+  createWatchtowerApiClient,
+  type HealthResponse,
+  type SnapshotResponse,
+  type WatchlistsResponse
+} from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 import { initializeTelegramApp } from "./telegram";
 
+type AppData = {
+  health: HealthResponse;
+  watchlists: WatchlistsResponse["watchlists"];
+  latestSnapshot: SnapshotResponse["snapshot"];
+};
+
 const telegram = initializeTelegramApp();
-const health = buildDemoHealthResponse("telegram");
-const snapshotDecision = health.snapshotPolicy;
-const demoWatchlist = buildDemoWatchlists()[0];
-const latestSnapshot = buildDemoSnapshot("telegram");
+const apiClient = createWatchtowerApiClient({ runtime: "telegram" });
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
 }
 
+function LoadingCard() {
+  return (
+    <main className="telegram-shell">
+      <section className="hero-card">
+        <p className="eyebrow">Telegram Mini App</p>
+        <h1>Acki Watchtower</h1>
+        <p>Loading demo API client data…</p>
+      </section>
+    </main>
+  );
+}
+
+function ErrorCard(props: { message: string }) {
+  return (
+    <main className="telegram-shell">
+      <section className="hero-card">
+        <p className="eyebrow">Telegram Mini App</p>
+        <h1>Unable to load Watchtower.</h1>
+        <p>{props.message}</p>
+      </section>
+    </main>
+  );
+}
+
 export function App() {
+  const [data, setData] = useState<AppData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadData() {
+      try {
+        const [health, watchlistsResponse, snapshotResponse] = await Promise.all([
+          apiClient.getHealth(),
+          apiClient.getWatchlists(),
+          apiClient.getLatestSnapshot()
+        ]);
+
+        if (!active) return;
+
+        setData({
+          health,
+          watchlists: watchlistsResponse.watchlists,
+          latestSnapshot: snapshotResponse.snapshot
+        });
+      } catch (caughtError) {
+        if (!active) return;
+
+        setError(caughtError instanceof Error ? caughtError.message : "Unknown API client error.");
+      }
+    }
+
+    void loadData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (error) return <ErrorCard message={error} />;
+  if (!data) return <LoadingCard />;
+
+  const { health, watchlists, latestSnapshot } = data;
+  const snapshotDecision = health.snapshotPolicy;
+  const demoWatchlist = watchlists[0];
+
   return (
     <main className="telegram-shell">
       <section className="hero-card">
