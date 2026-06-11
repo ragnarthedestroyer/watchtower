@@ -1,11 +1,12 @@
-import { buildDemoHealthResponse } from "@watchtower/api";
-import { DEFAULT_WATCHTOWER_CONFIG } from "@watchtower/core";
+import { buildDemoHealthResponse, buildDemoWatchlists } from "@watchtower/api";
+import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 import { initializeTelegramApp } from "./telegram";
 
 const telegram = initializeTelegramApp();
 const health = buildDemoHealthResponse("telegram");
 const snapshotDecision = health.snapshotPolicy;
+const demoWatchlist = buildDemoWatchlists()[0];
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -62,6 +63,25 @@ export function App() {
           <StatusBadge label="Hybrid" tone="warning" />
         </article>
       </section>
+
+      {demoWatchlist ? (
+        <section className="warning-card">
+          <span className="card-label">Demo watchlist</span>
+          <h2>{demoWatchlist.name}</h2>
+          <p>{demoWatchlist.wallets.length} wallets configured.</p>
+          <ul>
+            {demoWatchlist.wallets.map((wallet) => (
+              <li key={wallet.id}>
+                <strong>{wallet.label}</strong>
+                <br />
+                {humanStatusLabel(wallet.identity.scheme)} · {wallet.enabled ? "enabled" : "disabled"}
+                <br />
+                <code>{formatAccountIdentity(wallet.identity)}</code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="warning-card">
         <h2>Snapshot safety first</h2>

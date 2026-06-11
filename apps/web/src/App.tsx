@@ -1,9 +1,10 @@
-import { buildDemoHealthResponse } from "@watchtower/api";
-import { DEFAULT_WATCHTOWER_CONFIG } from "@watchtower/core";
+import { buildDemoHealthResponse, buildDemoWatchlists } from "@watchtower/api";
+import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 
 const health = buildDemoHealthResponse("web");
 const snapshotDecision = health.snapshotPolicy;
+const demoWatchlists = buildDemoWatchlists();
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -42,6 +43,25 @@ export function App() {
           <StatusBadge label={humanStatusLabel(DEFAULT_WATCHTOWER_CONFIG.api.addressMode)} tone="warning" />
           <p>Hybrid mode keeps legacy compatibility while preparing for State V2.</p>
         </article>
+      </section>
+
+      <section className="panel">
+        <h2>Demo watchlist</h2>
+        {demoWatchlists.map((watchlist) => (
+          <article key={watchlist.id}>
+            <h3>{watchlist.name}</h3>
+            <p>{watchlist.description}</p>
+            <ul>
+              {watchlist.wallets.map((wallet) => (
+                <li key={wallet.id}>
+                  <strong>{wallet.label}</strong> — {humanStatusLabel(wallet.identity.scheme)} — {wallet.enabled ? "enabled" : "disabled"}
+                  <br />
+                  <code>{formatAccountIdentity(wallet.identity)}</code>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
       </section>
 
       <section className="panel">
