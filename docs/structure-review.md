@@ -1,33 +1,55 @@
-# Structure Review
-
-Reviewed after the initial GitHub setup.
+# Watchtower Structure Review
 
 ## Status
 
-The repository structure is suitable for the current stage: documentation-first, TypeScript monorepo skeleton, and separated app/package layout.
-
-## Fixes applied in this updated version
-
-- Added root `README.md` from the previously misplaced `docs/README.md`.
-- Moved workflow from `github/workflows/typecheck.yml` to the correct GitHub Actions path: `.github/workflows/typecheck.yml`.
-- Updated package cross-imports to use `@watchtower/core` instead of relative `../../core/src` imports.
-- Confirmed TypeScript check passes with `tsc --noEmit`.
-
-## Current structure
+The repository now has a clean monorepo shape:
 
 ```text
 apps/
-  web/
+  server/
   telegram/
+  web/
+
 packages/
-  core/
   api/
+  core/
   db/
   ui/
+
 docs/
 .github/workflows/
 ```
 
-## Next recommended implementation step
+## Hotfix 09b
 
-Create the first application shell in `apps/web`, then add a simple health/status page that consumes the core models without connecting to the real Acki Nacki API yet.
+This hotfix corrects two structure/type issues found after reviewing the uploaded GitHub zip.
+
+### 1. GitHub Actions workflow path
+
+The workflow must live under:
+
+```text
+.github/workflows/typecheck.yml
+```
+
+The previous path below is not recognized by GitHub Actions:
+
+```text
+github/workflows/typecheck.yml
+```
+
+After applying this hotfix, the old `github/` folder can be removed from the repository.
+
+### 2. Demo runtime type
+
+The server app uses `server-job` as its runtime. The shared demo health builder now accepts:
+
+```ts
+"web" | "telegram" | "server-job" | "manual"
+```
+
+This matches the broader runtime model already used by the core snapshot types and prevents the server route layer from passing an unsupported runtime value.
+
+## Next step
+
+After this hotfix is committed, the next implementation batch can safely add real environment/config validation for Acki Nacki endpoints.

@@ -5,14 +5,14 @@ import {
 } from "@watchtower/core";
 import type { HealthResponse } from "./types";
 
-export type DemoRuntime = "web" | "telegram";
+export type DemoRuntime = "web" | "telegram" | "server-job" | "manual";
 
 export function buildDemoHealthResponse(runtime: DemoRuntime): HealthResponse {
   const apiSignal: ApiHealthSignal = {
     checkedAt: new Date().toISOString(),
     reachable: true,
     httpStatus: 200,
-    responseMs: runtime === "telegram" ? 530 : 412,
+    responseMs: runtime === "telegram" ? 530 : runtime === "server-job" ? 465 : 412,
     stale: false
   };
 
