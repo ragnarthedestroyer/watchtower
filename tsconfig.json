@@ -10,12 +10,23 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
+    "types": [
+      "node"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@watchtower/core": ["packages/core/src/index.ts"],
-      "@watchtower/api": ["packages/api/src/index.ts"],
-      "@watchtower/db": ["packages/db/src/index.ts"],
-      "@watchtower/ui": ["packages/ui/src/index.ts"]
+      "@watchtower/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@watchtower/api": [
+        "packages/api/src/index.ts"
+      ],
+      "@watchtower/db": [
+        "packages/db/src/index.ts"
+      ],
+      "@watchtower/ui": [
+        "packages/ui/src/index.ts"
+      ]
     }
   },
   "include": [
