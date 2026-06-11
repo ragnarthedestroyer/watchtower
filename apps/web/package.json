@@ -3,9 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
-    "@watchtower/core": "workspace:*",
+    "@vitejs/plugin-react": "^4.3.4",
     "@watchtower/api": "workspace:*",
-    "@watchtower/ui": "workspace:*"
+    "@watchtower/core": "workspace:*",
+    "@watchtower/ui": "workspace:*",
+    "vite": "^6.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
   }
 }
