@@ -1,4 +1,4 @@
-import { buildDemoHealthResponse, buildDemoWatchlists } from "@watchtower/api";
+import { buildDemoHealthResponse, buildDemoSnapshot, buildDemoWatchlists } from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 import { initializeTelegramApp } from "./telegram";
@@ -7,6 +7,7 @@ const telegram = initializeTelegramApp();
 const health = buildDemoHealthResponse("telegram");
 const snapshotDecision = health.snapshotPolicy;
 const demoWatchlist = buildDemoWatchlists()[0];
+const latestSnapshot = buildDemoSnapshot("telegram");
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -62,6 +63,25 @@ export function App() {
           </div>
           <StatusBadge label="Hybrid" tone="warning" />
         </article>
+      </section>
+
+      <section className="warning-card">
+        <span className="card-label">Latest demo snapshot</span>
+        <h2>{humanStatusLabel(latestSnapshot.policyDecision.mode)}</h2>
+        <p>
+          {latestSnapshot.totals.walletCount} wallets · {latestSnapshot.totals.partialWallets} partial · {latestSnapshot.totals.skippedWallets} skipped
+        </p>
+        <p>Confirmed NACKL: {latestSnapshot.totals.confirmedNacklFormatted}</p>
+        <ul>
+          {latestSnapshot.wallets.map((wallet) => (
+            <li key={wallet.walletId}>
+              <strong>{wallet.label}</strong>
+              <br />
+              {humanStatusLabel(wallet.status)}
+              {wallet.warnings.length > 0 ? ` · ${wallet.warnings[0]}` : ""}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {demoWatchlist ? (

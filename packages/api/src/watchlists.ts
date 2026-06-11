@@ -52,11 +52,13 @@ export async function createWatchlist(
 
   const now = new Date().toISOString();
 
+  const description = input.request.description?.trim();
+
   const watchlist: Watchlist = {
     id: createId("watchlist"),
     ownerUserId: input.userId,
     name,
-    description: input.request.description?.trim() || undefined,
+    ...(description ? { description } : {}),
     visibility: "private",
     wallets: [],
     createdAt: now,

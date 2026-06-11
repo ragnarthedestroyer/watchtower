@@ -1,10 +1,11 @@
-import { buildDemoHealthResponse, buildDemoWatchlists } from "@watchtower/api";
+import { buildDemoHealthResponse, buildDemoSnapshot, buildDemoWatchlists } from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 
 const health = buildDemoHealthResponse("web");
 const snapshotDecision = health.snapshotPolicy;
 const demoWatchlists = buildDemoWatchlists();
+const latestSnapshot = buildDemoSnapshot("web");
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -43,6 +44,37 @@ export function App() {
           <StatusBadge label={humanStatusLabel(DEFAULT_WATCHTOWER_CONFIG.api.addressMode)} tone="warning" />
           <p>Hybrid mode keeps legacy compatibility while preparing for State V2.</p>
         </article>
+      </section>
+
+      <section className="panel">
+        <h2>Latest demo snapshot</h2>
+        <div className="snapshot-grid">
+          <article>
+            <span className="card-label">Snapshot ID</span>
+            <code>{latestSnapshot.snapshotId}</code>
+          </article>
+          <article>
+            <span className="card-label">Wallets</span>
+            <strong>{latestSnapshot.totals.walletCount}</strong>
+            <p>
+              {latestSnapshot.totals.successfulWallets} ok · {latestSnapshot.totals.partialWallets} partial · {latestSnapshot.totals.skippedWallets} skipped
+            </p>
+          </article>
+          <article>
+            <span className="card-label">Confirmed NACKL</span>
+            <strong>{latestSnapshot.totals.confirmedNacklFormatted}</strong>
+            <p>No balance is trusted until the decoder is confirmed.</p>
+          </article>
+        </div>
+
+        <ul>
+          {latestSnapshot.wallets.map((wallet) => (
+            <li key={wallet.walletId}>
+              <strong>{wallet.label}</strong> — {humanStatusLabel(wallet.status)}
+              {wallet.warnings.length > 0 ? ` — ${wallet.warnings[0]}` : ""}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="panel">

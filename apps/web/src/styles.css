@@ -114,3 +114,29 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.snapshot-grid article {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.snapshot-grid strong,
+.snapshot-grid code {
+  display: block;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 860px) {
+  .snapshot-grid {
+    grid-template-columns: 1fr;
+  }
+}
