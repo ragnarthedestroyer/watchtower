@@ -71,5 +71,16 @@ function toWebRequest(
 
 server.listen(env.port, env.host, () => {
   console.log(`Acki Watchtower server listening on http://${env.host}:${env.port}`);
-  console.log("Available demo routes: /health, /watchlists, /snapshots/latest");
+  console.log(`Runtime mode: ${env.endpointConfig.mode}`);
+  console.log(
+    "Available routes: /health, /watchlists, /snapshots/latest, /config/status"
+  );
+
+  for (const warning of env.endpointConfig.warnings) {
+    console.warn(`Config warning: ${warning}`);
+  }
+
+  for (const error of env.endpointConfig.errors) {
+    console.error(`Config error: ${error}`);
+  }
 });

@@ -6,3 +6,4 @@ export * from "./snapshot";
 export * from "./watchlist";
 export * from "./config";
 export * from "./validation";
+export * from "./runtime-config";

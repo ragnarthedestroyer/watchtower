@@ -10,6 +10,40 @@ export function buildCorsHeaders(env: ServerEnv): HeadersInit {
   };
 }
 
+function jsonResponse(payload: unknown, env: ServerEnv, status = 200): Response {
+  return new Response(JSON.stringify(payload, null, 2), {
+    status,
+    headers: {
+      ...buildCorsHeaders(env),
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
+  });
+}
+
+function configStatusResponse(env: ServerEnv): Response {
+  const config = env.endpointConfig;
+
+  return jsonResponse(
+    {
+      ok: config.errors.length === 0,
+      data: {
+        mode: config.mode,
+        graphqlEndpointConfigured: config.graphqlEndpointConfigured,
+        restEndpointConfigured: config.restEndpointConfigured,
+        dappIdConfigured: config.dappIdConfigured,
+        apiKeyPresent: config.apiKeyPresent,
+        blockManagerEndpointConfigured: config.blockManagerEndpointConfigured,
+        warnings: config.warnings,
+        errors: config.errors
+      },
+      errors: config.errors
+    },
+    env,
+    config.errors.length === 0 ? 200 : 500
+  );
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -19,6 +53,13 @@ export async function handleServerRequest(
       status: 204,
       headers: buildCorsHeaders(env)
     });
+  }
+
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/\/$/, "") || "/";
+
+  if (request.method === "GET" && path === "/config/status") {
+    return configStatusResponse(env);
   }
 
   const response = await handleWatchtowerRequest(request, {
