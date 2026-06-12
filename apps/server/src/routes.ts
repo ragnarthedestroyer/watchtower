@@ -1,5 +1,6 @@
 import {
   buildLiveHealthResponse,
+  buildWatchtowerRouteCatalog,
   buildLiveSnapshot,
   buildDemoWatchlists,
   handleWatchtowerRequest,
@@ -29,6 +30,17 @@ function jsonResponse(payload: unknown, env: ServerEnv, status = 200): Response 
       "cache-control": "no-store"
     }
   });
+}
+
+function routeCatalogResponse(env: ServerEnv): Response {
+  return jsonResponse(
+    {
+      ok: true,
+      data: buildWatchtowerRouteCatalog(),
+      errors: []
+    },
+    env
+  );
 }
 
 function configStatusResponse(env: ServerEnv): Response {
@@ -281,6 +293,10 @@ export async function handleServerRequest(
 
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "") || "/";
+
+  if (request.method === "GET" && path === "/routes") {
+    return routeCatalogResponse(env);
+  }
 
   if (request.method === "GET" && path === "/config/status") {
     return configStatusResponse(env);

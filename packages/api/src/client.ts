@@ -7,6 +7,7 @@ import type {
   LiveSnapshotResponse,
   MobileVerifierEpochResponse,
   RawAccountResponse,
+  RouteCatalogResponse,
   SnapshotResponse,
   WatchlistsResponse
 } from "./types";
@@ -36,6 +37,7 @@ export type LiveSnapshotClientParams = {
 };
 
 export type WatchtowerApiClient = {
+  getRoutes(): Promise<RouteCatalogResponse>;
   getHealth(): Promise<HealthResponse>;
   getWatchlists(): Promise<WatchlistsResponse>;
   getLatestSnapshot(): Promise<SnapshotResponse>;
@@ -115,6 +117,11 @@ export function createWatchtowerApiClient(
   const transport = resolveTransport(options);
 
   return {
+    async getRoutes(): Promise<RouteCatalogResponse> {
+      const response = await transport(buildRequest("/routes", baseUrl));
+      return readApiJson<RouteCatalogResponse>(response);
+    },
+
     async getHealth(): Promise<HealthResponse> {
       const response = await transport(buildRequest("/health", baseUrl));
       return readApiJson<HealthResponse>(response);

@@ -9,6 +9,7 @@ import type { AccountInspectionResult } from "./account-inspector";
 import type { RawAccountReadResult } from "./account-reader";
 import type { LiveSnapshotBuildResult } from "./live-snapshot";
 import type { MobileVerifierRootReadResult } from "./mobile-verifier";
+import type { WatchtowerRouteCatalog } from "./route-catalog";
 
 export type ApiResponse<T> = {
   ok: boolean;
@@ -49,6 +50,8 @@ export type AccountInspectionResponse = AccountInspectionResult;
 export type MobileVerifierEpochResponse = MobileVerifierRootReadResult;
 
 export type LiveSnapshotResponse = LiveSnapshotBuildResult;
+
+export type RouteCatalogResponse = WatchtowerRouteCatalog;
 
 export type CreateWatchlistRequest = {
   name: string;
