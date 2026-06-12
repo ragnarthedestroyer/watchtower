@@ -5,6 +5,10 @@ import type {
   Watchlist,
   WatchtowerSnapshot
 } from "@watchtower/core";
+import type { AccountInspectionResult } from "./account-inspector";
+import type { RawAccountReadResult } from "./account-reader";
+import type { LiveSnapshotBuildResult } from "./live-snapshot";
+import type { MobileVerifierRootReadResult } from "./mobile-verifier";
 
 export type ApiResponse<T> = {
   ok: boolean;
@@ -26,6 +30,25 @@ export type WatchlistsResponse = {
 export type SnapshotResponse = {
   snapshot: WatchtowerSnapshot;
 };
+
+export type ConfigStatusResponse = {
+  mode: string;
+  graphqlEndpointConfigured: boolean;
+  restEndpointConfigured: boolean;
+  dappIdConfigured: boolean;
+  apiKeyPresent: boolean;
+  blockManagerEndpointConfigured: boolean;
+  warnings: string[];
+  errors: string[];
+};
+
+export type RawAccountResponse = RawAccountReadResult;
+
+export type AccountInspectionResponse = AccountInspectionResult;
+
+export type MobileVerifierEpochResponse = MobileVerifierRootReadResult;
+
+export type LiveSnapshotResponse = LiveSnapshotBuildResult;
 
 export type CreateWatchlistRequest = {
   name: string;

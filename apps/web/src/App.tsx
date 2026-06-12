@@ -1,20 +1,18 @@
 import { useEffect, useState } from "react";
 import {
-  createWatchtowerApiClient,
   type HealthResponse,
   type SnapshotResponse,
   type WatchlistsResponse
 } from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
+import { apiClient, apiClientBaseUrl, apiClientMode } from "./api-client";
 
 type AppData = {
   health: HealthResponse;
   watchlists: WatchlistsResponse["watchlists"];
   latestSnapshot: SnapshotResponse["snapshot"];
 };
-
-const apiClient = createWatchtowerApiClient({ runtime: "web" });
 
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
@@ -26,7 +24,7 @@ function LoadingPanel() {
       <section className="hero">
         <p className="eyebrow">Acki Watchtower</p>
         <h1>Loading Watchtower status…</h1>
-        <p className="hero-text">Reading the demo API client contract.</p>
+        <p className="hero-text">Reading through the configured Watchtower API client.</p>
       </section>
     </main>
   );
@@ -56,7 +54,9 @@ export function App() {
         const [health, watchlistsResponse, snapshotResponse] = await Promise.all([
           apiClient.getHealth(),
           apiClient.getWatchlists(),
-          apiClient.getLatestSnapshot()
+          apiClientMode === "server"
+            ? apiClient.getLiveSnapshot().then((result) => result.snapshot)
+            : apiClient.getLatestSnapshot().then((result) => result.snapshot)
         ]);
 
         if (!active) return;
@@ -64,7 +64,7 @@ export function App() {
         setData({
           health,
           watchlists: watchlistsResponse.watchlists,
-          latestSnapshot: snapshotResponse.snapshot
+          latestSnapshot: snapshotResponse
         });
       } catch (caughtError) {
         if (!active) return;
@@ -97,6 +97,13 @@ export function App() {
         </p>
       </section>
 
+      <section className="panel">
+        <h2>API client mode</h2>
+        <p>Mode: <strong>{humanStatusLabel(apiClientMode)}</strong></p>
+        <p>Base URL: <code>{apiClientBaseUrl}</code></p>
+        <p>Use <code>VITE_WATCHTOWER_API_BASE_URL</code> to connect the web app to the server.</p>
+      </section>
+
       <section className="grid">
         <article className="card">
           <span className="card-label">API Trust</span>
@@ -121,7 +128,7 @@ export function App() {
       </section>
 
       <section className="panel">
-        <h2>Latest demo snapshot</h2>
+        <h2>Latest snapshot</h2>
         <div className="snapshot-grid">
           <article>
             <span className="card-label">Snapshot ID</span>
@@ -152,7 +159,7 @@ export function App() {
       </section>
 
       <section className="panel">
-        <h2>Demo watchlist</h2>
+        <h2>Watchlist</h2>
         {watchlists.map((watchlist) => (
           <article key={watchlist.id}>
             <h3>{watchlist.name}</h3>

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  createWatchtowerApiClient,
   type HealthResponse,
   type SnapshotResponse,
   type WatchlistsResponse
 } from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
+import { apiClient, apiClientBaseUrl, apiClientMode } from "./api-client";
 import { initializeTelegramApp } from "./telegram";
 
 type AppData = {
@@ -16,8 +16,6 @@ type AppData = {
 };
 
 const telegram = initializeTelegramApp();
-const apiClient = createWatchtowerApiClient({ runtime: "telegram" });
-
 function StatusBadge(props: { label: string; tone: "success" | "warning" | "danger" | "neutral" }) {
   return <span className={`badge badge-${props.tone}`}>{props.label}</span>;
 }
@@ -28,7 +26,7 @@ function LoadingCard() {
       <section className="hero-card">
         <p className="eyebrow">Telegram Mini App</p>
         <h1>Acki Watchtower</h1>
-        <p>Loading demo API client data…</p>
+        <p>Loading Watchtower API client data…</p>
       </section>
     </main>
   );
@@ -58,7 +56,9 @@ export function App() {
         const [health, watchlistsResponse, snapshotResponse] = await Promise.all([
           apiClient.getHealth(),
           apiClient.getWatchlists(),
-          apiClient.getLatestSnapshot()
+          apiClientMode === "server"
+            ? apiClient.getLiveSnapshot().then((result) => result.snapshot)
+            : apiClient.getLatestSnapshot().then((result) => result.snapshot)
         ]);
 
         if (!active) return;
@@ -66,7 +66,7 @@ export function App() {
         setData({
           health,
           watchlists: watchlistsResponse.watchlists,
-          latestSnapshot: snapshotResponse.snapshot
+          latestSnapshot: snapshotResponse
         });
       } catch (caughtError) {
         if (!active) return;
@@ -98,6 +98,12 @@ export function App() {
           Compact monitoring for wallet/account states, Mobile Verifier epoch health,
           API trust, and snapshot safety.
         </p>
+      </section>
+
+      <section className="runtime-card">
+        <span className="card-label">API Client</span>
+        <StatusBadge label={humanStatusLabel(apiClientMode)} tone={apiClientMode === "server" ? "success" : "warning"} />
+        <p>{apiClientBaseUrl}</p>
       </section>
 
       <section className="runtime-card">
@@ -141,7 +147,7 @@ export function App() {
       </section>
 
       <section className="warning-card">
-        <span className="card-label">Latest demo snapshot</span>
+        <span className="card-label">Latest snapshot</span>
         <h2>{humanStatusLabel(latestSnapshot.policyDecision.mode)}</h2>
         <p>
           {latestSnapshot.totals.walletCount} wallets · {latestSnapshot.totals.partialWallets} partial · {latestSnapshot.totals.skippedWallets} skipped
@@ -161,7 +167,7 @@ export function App() {
 
       {demoWatchlist ? (
         <section className="warning-card">
-          <span className="card-label">Demo watchlist</span>
+          <span className="card-label">Watchlist</span>
           <h2>{demoWatchlist.name}</h2>
           <p>{demoWatchlist.wallets.length} wallets configured.</p>
           <ul>
