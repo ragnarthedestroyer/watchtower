@@ -4,7 +4,7 @@ import {
   type WatchtowerEndpointConfig
 } from "@watchtower/core";
 import type { HealthResponse } from "./types";
-import { checkAckiNetworkHealth } from "./acki-network";
+import { checkAckiNetworkHealth, type AckiNetworkClientConfig } from "./acki-network";
 
 export type BuildLiveHealthResponseInput = {
   endpointConfig: WatchtowerEndpointConfig;
@@ -13,11 +13,19 @@ export type BuildLiveHealthResponseInput = {
 export async function buildLiveHealthResponse(
   input: BuildLiveHealthResponseInput
 ): Promise<HealthResponse> {
-  const apiSignal = await checkAckiNetworkHealth({
-    graphqlEndpoint: input.endpointConfig.graphqlEndpoint ?? undefined,
-    restEndpoint: input.endpointConfig.restEndpoint ?? undefined,
+  const networkConfig: AckiNetworkClientConfig = {
     requestTimeoutMs: 10_000
-  });
+  };
+
+  if (input.endpointConfig.graphqlEndpoint) {
+    networkConfig.graphqlEndpoint = input.endpointConfig.graphqlEndpoint;
+  }
+
+  if (input.endpointConfig.restEndpoint) {
+    networkConfig.restEndpoint = input.endpointConfig.restEndpoint;
+  }
+
+  const apiSignal = await checkAckiNetworkHealth(networkConfig);
 
   const apiTrust = evaluateApiTrust(apiSignal);
 

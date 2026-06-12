@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readServerEnv } from "./env";
 import { handleServerRequest } from "./routes";
 
@@ -9,18 +9,8 @@ const server = createServer((incomingMessage, serverResponse) => {
 });
 
 async function routeIncomingRequest(
-  incomingMessage: Parameters<typeof createServer>[0] extends (
-    request: infer RequestType,
-    response: infer ResponseType
-  ) => unknown
-    ? RequestType
-    : never,
-  serverResponse: Parameters<typeof createServer>[0] extends (
-    request: infer RequestType,
-    response: infer ResponseType
-  ) => unknown
-    ? ResponseType
-    : never
+  incomingMessage: IncomingMessage,
+  serverResponse: ServerResponse
 ): Promise<void> {
   try {
     const request = toWebRequest(incomingMessage);
@@ -52,14 +42,7 @@ async function routeIncomingRequest(
   }
 }
 
-function toWebRequest(
-  incomingMessage: Parameters<typeof createServer>[0] extends (
-    request: infer RequestType,
-    response: infer ResponseType
-  ) => unknown
-    ? RequestType
-    : never
-): Request {
+function toWebRequest(incomingMessage: IncomingMessage): Request {
   const host = incomingMessage.headers.host || `localhost:${env.port}`;
   const url = new URL(incomingMessage.url || "/", `http://${host}`);
 

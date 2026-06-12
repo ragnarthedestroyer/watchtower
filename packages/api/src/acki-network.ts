@@ -51,34 +51,37 @@ export async function checkAckiNetworkHealth(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(target.endpoint, {
+    const requestInit: RequestInit = {
       method: target.kind === "graphql" ? "POST" : "GET",
-      headers:
-        target.kind === "graphql"
-          ? {
-              "content-type": "application/json"
-            }
-          : undefined,
-      body:
-        target.kind === "graphql"
-          ? JSON.stringify({
-              query: "query WatchtowerHealthCheck { __typename }"
-            })
-          : undefined,
       signal: controller.signal
-    });
+    };
 
+    if (target.kind === "graphql") {
+      requestInit.headers = {
+        "content-type": "application/json"
+      };
+      requestInit.body = JSON.stringify({
+        query: "query WatchtowerHealthCheck { __typename }"
+      });
+    }
+
+    const response = await fetch(target.endpoint, requestInit);
     const responseMs = Date.now() - startedAt;
     const bodyText = await response.text().catch(() => "");
 
-    return {
+    const signal: ApiHealthSignal = {
       checkedAt,
       reachable: response.ok,
       httpStatus: response.status,
       responseMs,
-      stale: false,
-      errorText: response.ok ? undefined : bodyText.slice(0, 500)
+      stale: false
     };
+
+    if (!response.ok && bodyText) {
+      signal.errorText = bodyText.slice(0, 500);
+    }
+
+    return signal;
   } catch (error) {
     const responseMs = Date.now() - startedAt;
     const errorText =
