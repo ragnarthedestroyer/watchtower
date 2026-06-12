@@ -18,3 +18,5 @@ export * from "./live-mobile-verifier";
 export * from "./account-inspector";
 
 export * from "./live-snapshot";
+
+export * from "./balance-decoder";

@@ -1,5 +1,9 @@
 import type { NormalizedRawAccount } from "./account-normalizer";
 import type { RawAccountReadMode, RawAccountReadResult } from "./account-reader";
+import {
+  decodeBalanceCandidatesFromRawAccount,
+  type BalanceDecoderCandidate
+} from "./balance-decoder";
 
 export type AccountRawShapeSummary = {
   topLevelType: string;
@@ -27,6 +31,7 @@ export type AccountInspectionResult = {
   normalizedAccount: NormalizedRawAccount | null;
   rawShape: AccountRawShapeSummary;
   decoderHints: AccountDecoderHint[];
+  balanceCandidates: BalanceDecoderCandidate[];
   errors: string[];
   warnings: string[];
 };
@@ -172,11 +177,14 @@ export function inspectRawAccountReadResult(
   }
 
   const normalizedAccount = result.account ?? null;
+  const decoderHints = buildAccountDecoderHints(normalizedAccount);
+  const balanceDecode = decodeBalanceCandidatesFromRawAccount(result);
   const warnings = [
     ...(result.normalizerWarnings ?? []),
-    ...buildAccountDecoderHints(normalizedAccount)
+    ...decoderHints
       .filter((hint) => hint.level === "warning" || hint.level === "blocked")
-      .map((hint) => hint.message)
+      .map((hint) => hint.message),
+    ...balanceDecode.warnings
   ];
 
   return {
@@ -187,7 +195,8 @@ export function inspectRawAccountReadResult(
     accountPresent: normalizedAccount !== null && normalizedAccount.present,
     normalizedAccount,
     rawShape: summarizeRawAccountShape(result.raw),
-    decoderHints: buildAccountDecoderHints(normalizedAccount),
+    decoderHints,
+    balanceCandidates: balanceDecode.candidates,
     errors: result.errors,
     warnings
   };

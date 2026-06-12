@@ -14,6 +14,7 @@ import { readLiveMobileVerifierRoot } from "./live-mobile-verifier";
 import type { MobileVerifierRootReadResult } from "./mobile-verifier";
 import { readLiveRawAccount } from "./live-account";
 import type { RawAccountReadRequest } from "./account-reader";
+import { decodeBalanceCandidatesFromRawAccount } from "./balance-decoder";
 
 export type BuildLiveSnapshotInput = {
   endpointConfig: WatchtowerEndpointConfig;
@@ -97,20 +98,13 @@ async function buildWalletSnapshot(input: {
     snapshot.resolvedDappId = wallet.identity.dappId;
   }
 
-  if (readResult.account?.balance !== undefined && readResult.account.balance !== null) {
-    snapshot.balances.push({
-      token: "UNKNOWN",
-      amountRaw: readResult.account.balance,
-      decimals: 0,
-      amountFormatted: "Raw account balance only; token meaning is not decoded.",
-      confidence: "unresolved",
-      source: "raw-account.balance"
-    });
-  }
+  const balanceDecode = decodeBalanceCandidatesFromRawAccount(readResult);
+  snapshot.balances.push(...balanceDecode.balances);
+  snapshot.warnings.push(...balanceDecode.warnings);
 
   if (readResult.ok) {
     snapshot.warnings.push(
-      "Raw account was read, but wallet/token balance decoding is not implemented yet."
+      "Balance candidates are decoder hints only; confirmed wallet/token decoding is not implemented yet."
     );
   }
 
