@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts"
+    "dev": "tsx src/main.ts"
   },
   "dependencies": {
-    "@watchtower/api": "workspace:*"
+    "@watchtower/core": "0.1.0",
+    "@watchtower/api": "0.1.0",
+    "@watchtower/db": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2"
   }
 }
