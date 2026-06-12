@@ -15,6 +15,7 @@ import type { MobileVerifierRootReadResult } from "./mobile-verifier";
 import { readLiveRawAccount } from "./live-account";
 import type { RawAccountReadRequest } from "./account-reader";
 import { decodeBalanceCandidatesFromRawAccount } from "./balance-decoder";
+import { summarizeWalletBalanceEvidence } from "./decoder-confidence";
 
 export type BuildLiveSnapshotInput = {
   endpointConfig: WatchtowerEndpointConfig;
@@ -170,6 +171,9 @@ export async function buildLiveSnapshot(
     )
   );
 
+  const balanceEvidence = summarizeWalletBalanceEvidence(wallets);
+  warnings.push(...balanceEvidence.warnings);
+
   const totals = countSnapshotWalletStatuses(wallets);
   const enabledWallets = input.watchlist.wallets.filter((wallet) => wallet.enabled);
   const successfulWallets = wallets.filter((wallet) => wallet.status === "OK" || wallet.status === "PARTIAL").length;
@@ -187,7 +191,7 @@ export async function buildLiveSnapshot(
     successfulWallets,
     configuredWallets: enabledWallets.length,
     allBalancesZero,
-    decoderConfidence: "unresolved",
+    decoderConfidence: balanceEvidence.recommendedSnapshotConfidence,
     hasRateLimitSignal: health.apiTrust.hasRateLimitSignal,
     hasCloudflareOutageSignal: health.apiTrust.hasCloudflareOutageSignal
   });

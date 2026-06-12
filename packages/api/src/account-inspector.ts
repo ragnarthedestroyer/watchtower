@@ -4,6 +4,10 @@ import {
   decodeBalanceCandidatesFromRawAccount,
   type BalanceDecoderCandidate
 } from "./balance-decoder";
+import {
+  summarizeBalanceCandidates,
+  type BalanceEvidenceSummary
+} from "./decoder-confidence";
 
 export type AccountRawShapeSummary = {
   topLevelType: string;
@@ -32,6 +36,7 @@ export type AccountInspectionResult = {
   rawShape: AccountRawShapeSummary;
   decoderHints: AccountDecoderHint[];
   balanceCandidates: BalanceDecoderCandidate[];
+  balanceEvidence: BalanceEvidenceSummary;
   errors: string[];
   warnings: string[];
 };
@@ -179,12 +184,14 @@ export function inspectRawAccountReadResult(
   const normalizedAccount = result.account ?? null;
   const decoderHints = buildAccountDecoderHints(normalizedAccount);
   const balanceDecode = decodeBalanceCandidatesFromRawAccount(result);
+  const balanceEvidence = summarizeBalanceCandidates(balanceDecode.candidates);
   const warnings = [
     ...(result.normalizerWarnings ?? []),
     ...decoderHints
       .filter((hint) => hint.level === "warning" || hint.level === "blocked")
       .map((hint) => hint.message),
-    ...balanceDecode.warnings
+    ...balanceDecode.warnings,
+    ...balanceEvidence.warnings
   ];
 
   return {
@@ -197,6 +204,7 @@ export function inspectRawAccountReadResult(
     rawShape: summarizeRawAccountShape(result.raw),
     decoderHints,
     balanceCandidates: balanceDecode.candidates,
+    balanceEvidence,
     errors: result.errors,
     warnings
   };
