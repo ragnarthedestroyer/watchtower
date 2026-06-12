@@ -46,10 +46,15 @@ function toWebRequest(incomingMessage: IncomingMessage): Request {
   const host = incomingMessage.headers.host || `localhost:${env.port}`;
   const url = new URL(incomingMessage.url || "/", `http://${host}`);
 
-  return new Request(url, {
-    method: incomingMessage.method,
+  const requestInit: RequestInit = {
     headers: incomingMessage.headers as HeadersInit
-  });
+  };
+
+  if (incomingMessage.method) {
+    requestInit.method = incomingMessage.method;
+  }
+
+  return new Request(url, requestInit);
 }
 
 server.listen(env.port, env.host, () => {
