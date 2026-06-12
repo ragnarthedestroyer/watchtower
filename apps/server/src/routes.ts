@@ -1,6 +1,8 @@
 import {
   buildLiveHealthResponse,
-  handleWatchtowerRequest
+  handleWatchtowerRequest,
+  readLiveRawAccount,
+  type RawAccountReadRequest
 } from "@watchtower/api";
 import { endpointConfigIsUsableForLiveReads } from "@watchtower/core";
 import type { ServerEnv } from "./env";
@@ -76,6 +78,65 @@ async function healthResponse(env: ServerEnv): Promise<Response> {
   return jsonResponse(body, env, response.status);
 }
 
+function rawAccountRequestFromUrl(url: URL, env: ServerEnv): RawAccountReadRequest {
+  const legacyAddress = url.searchParams.get("address")?.trim();
+  const accountId = url.searchParams.get("account_id")?.trim();
+  const requestedDappId = url.searchParams.get("dapp_id")?.trim();
+  const dappId = requestedDappId || env.endpointConfig.dappId || undefined;
+
+  if (legacyAddress) {
+    return {
+      mode: "legacy",
+      legacyAddress
+    };
+  }
+
+  const request: RawAccountReadRequest = {
+    mode: "state_v2"
+  };
+
+  if (accountId) {
+    request.accountId = accountId;
+  }
+
+  if (dappId) {
+    request.dappId = dappId;
+  }
+
+  return request;
+}
+
+async function rawAccountResponse(url: URL, env: ServerEnv): Promise<Response> {
+  if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [
+          "Raw account reads require live-read mode and a valid endpoint configuration.",
+          ...env.endpointConfig.errors
+        ]
+      },
+      env,
+      503
+    );
+  }
+
+  const result = await readLiveRawAccount({
+    endpointConfig: env.endpointConfig,
+    request: rawAccountRequestFromUrl(url, env)
+  });
+
+  return jsonResponse(
+    {
+      ok: result.ok,
+      data: result.ok ? result : undefined,
+      errors: result.errors
+    },
+    env,
+    result.ok ? 200 : 400
+  );
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -96,6 +157,10 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/health") {
     return healthResponse(env);
+  }
+
+  if (request.method === "GET" && path === "/accounts/raw") {
+    return rawAccountResponse(url, env);
   }
 
   const response = await handleWatchtowerRequest(request, {
