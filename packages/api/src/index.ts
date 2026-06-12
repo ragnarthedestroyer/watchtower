@@ -16,3 +16,5 @@ export * from "./mobile-verifier-decoder";
 export * from "./mobile-verifier";
 export * from "./live-mobile-verifier";
 export * from "./account-inspector";
+
+export * from "./live-snapshot";

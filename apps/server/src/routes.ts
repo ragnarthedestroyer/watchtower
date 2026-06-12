@@ -1,5 +1,7 @@
 import {
   buildLiveHealthResponse,
+  buildLiveSnapshot,
+  buildDemoWatchlists,
   handleWatchtowerRequest,
   inspectRawAccountReadResult,
   readLiveMobileVerifierRoot,
@@ -214,6 +216,58 @@ async function mobileVerifierEpochResponse(
   );
 }
 
+async function liveSnapshotResponse(url: URL, env: ServerEnv): Promise<Response> {
+  if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [
+          "Live snapshot reads require live-read mode and a valid endpoint configuration.",
+          ...env.endpointConfig.errors
+        ]
+      },
+      env,
+      503
+    );
+  }
+
+  const rootAddress = url.searchParams.get("mv_root_address")?.trim();
+  const watchlist = buildDemoWatchlists()[0];
+
+  if (!watchlist) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: ["No watchlist is available for live snapshot building."]
+      },
+      env,
+      500
+    );
+  }
+
+  const input: Parameters<typeof buildLiveSnapshot>[0] = {
+    endpointConfig: env.endpointConfig,
+    watchlist,
+    runtime: env.runtime
+  };
+
+  if (rootAddress) {
+    input.mobileVerifierRootAddress = rootAddress;
+  }
+
+  const result = await buildLiveSnapshot(input);
+
+  return jsonResponse(
+    {
+      ok: result.ok,
+      data: result,
+      errors: result.errors
+    },
+    env,
+    result.errors.length === 0 ? 200 : 400
+  );
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -246,6 +300,10 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/epoch/mobile-verifier") {
     return mobileVerifierEpochResponse(url, env);
+  }
+
+  if (request.method === "GET" && path === "/snapshots/live") {
+    return liveSnapshotResponse(url, env);
   }
 
   const response = await handleWatchtowerRequest(request, {
