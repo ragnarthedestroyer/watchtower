@@ -3,6 +3,10 @@ import {
   validateDappId,
   validateLegacyAddress
 } from "@watchtower/core";
+import {
+  normalizeRawAccountGraphqlResponse,
+  type NormalizedRawAccount
+} from "./account-normalizer";
 
 export type RawAccountReadMode = "legacy" | "state_v2";
 
@@ -35,6 +39,10 @@ export type RawAccountReadResult = {
   accountId?: string;
   dappId?: string;
   raw?: unknown;
+  account?: NormalizedRawAccount;
+  accountCount?: number;
+  graphqlErrors?: string[];
+  normalizerWarnings?: string[];
   errors: string[];
 };
 
@@ -163,14 +171,42 @@ export async function readRawAccountFromGraphql(input: {
       raw = rawText;
     }
 
+    const normalized = normalizeRawAccountGraphqlResponse(raw);
+    const errors: string[] = [];
+
+    if (!response.ok) {
+      errors.push(`GraphQL account read failed with HTTP ${response.status}.`);
+    }
+
+    if (normalized.graphqlErrors.length > 0) {
+      errors.push(...normalized.graphqlErrors);
+    }
+
+    if (response.ok && normalized.accountCount === 0) {
+      errors.push("GraphQL account read returned no matching account record.");
+    }
+
     const result: RawAccountReadResult = {
-      ok: response.ok,
+      ok: response.ok && errors.length === 0,
       mode: input.request.mode,
       requestedAt,
       endpointKind: "graphql",
       raw,
-      errors: response.ok ? [] : [`GraphQL account read failed with HTTP ${response.status}.`]
+      accountCount: normalized.accountCount,
+      errors
     };
+
+    if (normalized.account !== null) {
+      result.account = normalized.account;
+    }
+
+    if (normalized.graphqlErrors.length > 0) {
+      result.graphqlErrors = normalized.graphqlErrors;
+    }
+
+    if (normalized.warnings.length > 0) {
+      result.normalizerWarnings = normalized.warnings;
+    }
 
     if (input.request.legacyAddress !== undefined) {
       result.legacyAddress = input.request.legacyAddress;

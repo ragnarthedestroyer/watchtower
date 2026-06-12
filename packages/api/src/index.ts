@@ -9,6 +9,7 @@ export * from "./client";
 export * from "./acki-network";
 export * from "./live-health";
 
+export * from "./account-normalizer";
 export * from "./account-reader";
 export * from "./live-account";
 export * from "./mobile-verifier";
