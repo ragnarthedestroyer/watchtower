@@ -1,4 +1,8 @@
-import { handleWatchtowerRequest } from "@watchtower/api";
+import {
+  buildLiveHealthResponse,
+  handleWatchtowerRequest
+} from "@watchtower/api";
+import { endpointConfigIsUsableForLiveReads } from "@watchtower/core";
 import type { ServerEnv } from "./env";
 
 export function buildCorsHeaders(env: ServerEnv): HeadersInit {
@@ -44,6 +48,34 @@ function configStatusResponse(env: ServerEnv): Response {
   );
 }
 
+async function healthResponse(env: ServerEnv): Promise<Response> {
+  if (endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    const liveHealth = await buildLiveHealthResponse({
+      endpointConfig: env.endpointConfig
+    });
+
+    return jsonResponse(
+      {
+        ok: liveHealth.apiTrust.status === "OK",
+        data: liveHealth,
+        errors: liveHealth.apiTrust.status === "OK" ? [] : liveHealth.apiTrust.reasons
+      },
+      env,
+      liveHealth.apiTrust.status === "OK" ? 200 : 503
+    );
+  }
+
+  const response = await handleWatchtowerRequest(
+    new Request("http://watchtower.local/health"),
+    {
+      runtime: env.runtime
+    }
+  );
+
+  const body = await response.json();
+  return jsonResponse(body, env, response.status);
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -60,6 +92,10 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/config/status") {
     return configStatusResponse(env);
+  }
+
+  if (request.method === "GET" && path === "/health") {
+    return healthResponse(env);
   }
 
   const response = await handleWatchtowerRequest(request, {
