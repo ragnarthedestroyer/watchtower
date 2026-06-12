@@ -1,6 +1,7 @@
 import {
   buildLiveHealthResponse,
   handleWatchtowerRequest,
+  readLiveMobileVerifierRoot,
   readLiveRawAccount,
   type RawAccountReadRequest
 } from "@watchtower/api";
@@ -137,6 +138,44 @@ async function rawAccountResponse(url: URL, env: ServerEnv): Promise<Response> {
   );
 }
 
+
+async function mobileVerifierEpochResponse(
+  url: URL,
+  env: ServerEnv
+): Promise<Response> {
+  if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [
+          "Mobile Verifier epoch reads require live-read mode and a valid endpoint configuration.",
+          ...env.endpointConfig.errors
+        ]
+      },
+      env,
+      503
+    );
+  }
+
+  const rootAddress = url.searchParams.get("address")?.trim();
+  const request = rootAddress ? { rootAddress } : {};
+
+  const result = await readLiveMobileVerifierRoot({
+    endpointConfig: env.endpointConfig,
+    request
+  });
+
+  return jsonResponse(
+    {
+      ok: result.ok,
+      data: result,
+      errors: result.errors
+    },
+    env,
+    result.ok ? 200 : 400
+  );
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -161,6 +200,10 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/accounts/raw") {
     return rawAccountResponse(url, env);
+  }
+
+  if (request.method === "GET" && path === "/epoch/mobile-verifier") {
+    return mobileVerifierEpochResponse(url, env);
   }
 
   const response = await handleWatchtowerRequest(request, {
