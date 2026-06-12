@@ -5,6 +5,10 @@ import {
   type BalanceDecoderCandidate
 } from "./balance-decoder";
 import {
+  classifyWatchtowerAccount,
+  type WatchtowerAccountClassification
+} from "./account-classifier";
+import {
   summarizeBalanceCandidates,
   type BalanceEvidenceSummary
 } from "./decoder-confidence";
@@ -37,6 +41,7 @@ export type AccountInspectionResult = {
   decoderHints: AccountDecoderHint[];
   balanceCandidates: BalanceDecoderCandidate[];
   balanceEvidence: BalanceEvidenceSummary;
+  accountClassification: WatchtowerAccountClassification;
   errors: string[];
   warnings: string[];
 };
@@ -185,13 +190,18 @@ export function inspectRawAccountReadResult(
   const decoderHints = buildAccountDecoderHints(normalizedAccount);
   const balanceDecode = decodeBalanceCandidatesFromRawAccount(result);
   const balanceEvidence = summarizeBalanceCandidates(balanceDecode.candidates);
+  const accountClassification = classifyWatchtowerAccount({
+    account: normalizedAccount,
+    balanceCandidates: balanceDecode.candidates
+  });
   const warnings = [
     ...(result.normalizerWarnings ?? []),
     ...decoderHints
       .filter((hint) => hint.level === "warning" || hint.level === "blocked")
       .map((hint) => hint.message),
     ...balanceDecode.warnings,
-    ...balanceEvidence.warnings
+    ...balanceEvidence.warnings,
+    ...accountClassification.warnings
   ];
 
   return {
@@ -205,6 +215,7 @@ export function inspectRawAccountReadResult(
     decoderHints,
     balanceCandidates: balanceDecode.candidates,
     balanceEvidence,
+    accountClassification,
     errors: result.errors,
     warnings
   };

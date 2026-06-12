@@ -22,3 +22,5 @@ export * from "./live-snapshot";
 export * from "./balance-decoder";
 
 export * from "./decoder-confidence";
+
+export * from "./account-classifier";

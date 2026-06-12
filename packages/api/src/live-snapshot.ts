@@ -16,6 +16,7 @@ import { readLiveRawAccount } from "./live-account";
 import type { RawAccountReadRequest } from "./account-reader";
 import { decodeBalanceCandidatesFromRawAccount } from "./balance-decoder";
 import { summarizeWalletBalanceEvidence } from "./decoder-confidence";
+import { classifyWatchtowerAccount } from "./account-classifier";
 
 export type BuildLiveSnapshotInput = {
   endpointConfig: WatchtowerEndpointConfig;
@@ -100,8 +101,17 @@ async function buildWalletSnapshot(input: {
   }
 
   const balanceDecode = decodeBalanceCandidatesFromRawAccount(readResult);
+  const accountClassification = classifyWatchtowerAccount({
+    account: readResult.account ?? null,
+    balanceCandidates: balanceDecode.candidates
+  });
+
   snapshot.balances.push(...balanceDecode.balances);
   snapshot.warnings.push(...balanceDecode.warnings);
+  snapshot.warnings.push(
+    `Account classification: ${accountClassification.label} (${accountClassification.confidence}).`
+  );
+  snapshot.warnings.push(...accountClassification.warnings);
 
   if (readResult.ok) {
     snapshot.warnings.push(
