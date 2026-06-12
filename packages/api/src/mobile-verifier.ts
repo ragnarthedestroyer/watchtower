@@ -1,6 +1,11 @@
 import type { MobileVerifierEpoch } from "@watchtower/core";
 import { validateLegacyAddress } from "@watchtower/core";
 import type { RawAccountReadResult } from "./account-reader";
+import {
+  decodeMobileVerifierEpochFromRawAccount,
+  type MobileVerifierDecodedFields,
+  type MobileVerifierDecoderStatus
+} from "./mobile-verifier-decoder";
 
 export const DEFAULT_MOBILE_VERIFIER_ROOT_ADDRESS =
   "0:2222222222222222222222222222222222222222222222222222222222222222";
@@ -15,7 +20,9 @@ export type MobileVerifierRootReadResult = {
   rootAddress: string;
   rawAccount: RawAccountReadResult | null;
   epoch: MobileVerifierEpoch;
-  decoderStatus: "unresolved" | "partial" | "confirmed";
+  decoderStatus: MobileVerifierDecoderStatus;
+  decodedFields?: MobileVerifierDecodedFields;
+  matchedFieldPaths?: string[];
   errors: string[];
   warnings: string[];
 };
@@ -76,22 +83,30 @@ export function buildMobileVerifierRootReadResult(input: {
     };
   }
 
-  return {
+  const decoded = decodeMobileVerifierEpochFromRawAccount({
+    rawAccount: input.rawAccount,
+    checkedAt: input.requestedAt,
+    rootAddress: input.rootAddress
+  });
+
+  const result: MobileVerifierRootReadResult = {
     ok: true,
     requestedAt: input.requestedAt,
     rootAddress: input.rootAddress,
     rawAccount: input.rawAccount,
-    epoch: buildUnknownMobileVerifierEpoch({
-      checkedAt: input.requestedAt,
-      rootAddress: input.rootAddress,
-      statusReason:
-        "Mobile Verifier root account was read, but ABI/BOC epoch decoding is not implemented yet."
-    }),
-    decoderStatus: "unresolved",
+    epoch: decoded.epoch,
+    decoderStatus: decoded.status,
     errors,
-    warnings: [
-      ...warnings,
-      "Raw root account read succeeded, but epoch decoder is still unresolved. Snapshots must remain blocked."
-    ]
+    warnings: [...warnings, ...decoded.warnings]
   };
+
+  if (Object.keys(decoded.decodedFields).length > 0) {
+    result.decodedFields = decoded.decodedFields;
+  }
+
+  if (decoded.matchedFieldPaths.length > 0) {
+    result.matchedFieldPaths = decoded.matchedFieldPaths;
+  }
+
+  return result;
 }
