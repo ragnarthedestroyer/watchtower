@@ -232,3 +232,49 @@ code {
 .detail-row code {
   overflow-wrap: anywhere;
 }
+
+
+.inspect-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.text-input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 999px;
+  padding: 0.75rem 0.9rem;
+  color: #e5eefb;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.text-input::placeholder {
+  color: #64748b;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.split-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.split-list > div {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.95rem;
+  padding: 0.9rem;
+  background: rgba(2, 6, 23, 0.32);
+}
+
+@media (max-width: 520px) {
+  .inspect-form {
+    grid-template-columns: 1fr;
+  }
+}

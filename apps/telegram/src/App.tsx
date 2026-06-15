@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  type AccountInspectionResponse,
   type ConfigStatusResponse,
   type HealthResponse,
   type LiveSnapshotResponse,
@@ -146,6 +147,10 @@ export function App() {
   const [selectedSnapshotDetail, setSelectedSnapshotDetail] = useState<SnapshotHistoryDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [accountAddressInput, setAccountAddressInput] = useState("");
+  const [accountInspection, setAccountInspection] = useState<AccountInspectionResponse | null>(null);
+  const [inspectionLoading, setInspectionLoading] = useState(false);
+  const [inspectionError, setInspectionError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -208,6 +213,34 @@ export function App() {
       setDetailError(caughtError instanceof Error ? caughtError.message : "Unknown snapshot-detail error.");
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  async function inspectConfiguredAccount() {
+    const address = accountAddressInput.trim();
+
+    setAccountInspection(null);
+    setInspectionError(null);
+
+    if (apiClientMode !== "server") {
+      setInspectionError("Account inspection is only available when connected to the Watchtower server.");
+      return;
+    }
+
+    if (!address) {
+      setInspectionError("Enter a legacy address such as 0:<64hex> before inspecting.");
+      return;
+    }
+
+    setInspectionLoading(true);
+
+    try {
+      const inspection = await apiClient.inspectAccount({ address });
+      setAccountInspection(inspection);
+    } catch (caughtError) {
+      setInspectionError(caughtError instanceof Error ? caughtError.message : "Unknown account-inspection error.");
+    } finally {
+      setInspectionLoading(false);
     }
   }
 
@@ -460,6 +493,150 @@ export function App() {
         ) : (
           <p>No detail loaded.</p>
         )}
+      </section>
+
+      <section className="warning-card">
+        <span className="card-label">Inspect</span>
+        <h2>Account inspection</h2>
+        <StatusBadge
+          label={accountInspection ? (accountInspection.accountPresent ? "Account Found" : "No Account") : "Ready"}
+          tone={accountInspection ? (accountInspection.accountPresent ? "success" : "warning") : "neutral"}
+        />
+        <p>
+          Inspect a single legacy account through <code>/accounts/inspect</code>. This is research
+          evidence only; raw balances are not confirmed wallet NACKL.
+        </p>
+
+        <div className="inspect-form">
+          <input
+            className="text-input"
+            type="text"
+            value={accountAddressInput}
+            onChange={(event) => setAccountAddressInput(event.target.value)}
+            placeholder="0:<64hex>"
+            aria-label="Legacy account address"
+          />
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void inspectConfiguredAccount()}
+            disabled={inspectionLoading}
+          >
+            {inspectionLoading ? "Inspecting…" : "Inspect"}
+          </button>
+        </div>
+
+        {inspectionError ? <p className="error-text">{inspectionError}</p> : null}
+
+        {accountInspection ? (
+          <div className="detail-stack">
+            <div className="compact-grid">
+              <div>
+                <span>Mode</span>
+                <strong>{humanStatusLabel(accountInspection.mode)}</strong>
+              </div>
+              <div>
+                <span>Account present</span>
+                <StatusBadge label={accountInspection.accountPresent ? "Yes" : "No"} tone={accountInspection.accountPresent ? "success" : "warning"} />
+              </div>
+              <div>
+                <span>Classification</span>
+                <strong>{humanStatusLabel(accountInspection.accountClassification.kind)}</strong>
+              </div>
+              <div>
+                <span>Decoder confidence</span>
+                <strong>{humanStatusLabel(accountInspection.balanceEvidence.recommendedSnapshotConfidence)}</strong>
+              </div>
+              <div>
+                <span>Balance candidates</span>
+                <strong>{accountInspection.balanceCandidates.length}</strong>
+              </div>
+              <div>
+                <span>Raw container</span>
+                <strong>{accountInspection.rawShape.accountContainer}</strong>
+              </div>
+            </div>
+
+            {accountInspection.normalizedAccount ? (
+              <div className="detail-box">
+                <h3>Normalized account fields</h3>
+                <div className="compact-grid">
+                  <div>
+                    <span>ID</span>
+                    <code>{accountInspection.normalizedAccount.id ?? "not returned"}</code>
+                  </div>
+                  <div>
+                    <span>Account ID</span>
+                    <code>{accountInspection.normalizedAccount.accountId ?? "not returned"}</code>
+                  </div>
+                  <div>
+                    <span>DApp ID</span>
+                    <code>{accountInspection.normalizedAccount.dappId ?? "not returned"}</code>
+                  </div>
+                  <div>
+                    <span>Raw balance</span>
+                    <code>{accountInspection.normalizedAccount.balance ?? "not returned"}</code>
+                  </div>
+                  <div>
+                    <span>BOC</span>
+                    <strong>{accountInspection.normalizedAccount.boc ? "present" : "missing"}</strong>
+                  </div>
+                  <div>
+                    <span>Code hash</span>
+                    <code>{accountInspection.normalizedAccount.codeHash ?? "not returned"}</code>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="split-list">
+              <div>
+                <h3>Decoder hints</h3>
+                {accountInspection.decoderHints.length > 0 ? (
+                  <ul>
+                    {accountInspection.decoderHints.map((hint) => (
+                      <li key={`${hint.level}-${hint.message}`}>
+                        <strong>{humanStatusLabel(hint.level)}:</strong> {hint.message}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No decoder hints returned.</p>
+                )}
+              </div>
+              <div>
+                <h3>Warnings</h3>
+                {accountInspection.warnings.length > 0 ? (
+                  <ul>
+                    {accountInspection.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No inspection warnings.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="detail-box">
+              <h3>Balance candidates</h3>
+              {accountInspection.balanceCandidates.length > 0 ? (
+                <div className="detail-table">
+                  {accountInspection.balanceCandidates.map((candidate) => (
+                    <article key={`${candidate.source}-${candidate.path}-${candidate.amountRaw}`} className="detail-row">
+                      <strong>{candidate.token}</strong>
+                      <code>{candidate.amountRaw}</code>
+                      <span>{humanStatusLabel(candidate.confidence)}</span>
+                      <small>{candidate.path}</small>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p>No balance candidates found in this inspection.</p>
+              )}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="warning-card">
