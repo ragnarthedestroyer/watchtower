@@ -557,7 +557,7 @@ export function App() {
               </div>
               <div>
                 <span>Decoder confidence</span>
-                <strong>{humanStatusLabel(accountInspection.balanceEvidence.decoderConfidence)}</strong>
+                <strong>{humanStatusLabel(accountInspection.balanceEvidence.recommendedSnapshotConfidence)}</strong>
               </div>
               <div>
                 <span>Balance candidates</span>
@@ -635,7 +635,7 @@ export function App() {
               {accountInspection.balanceCandidates.length > 0 ? (
                 <div className="detail-table">
                   {accountInspection.balanceCandidates.map((candidate) => (
-                    <article key={`${candidate.source}-${candidate.evidencePath}-${candidate.amountRaw}`} className="detail-row">
+                    <article key={`${candidate.source}-${candidate.path}-${candidate.amountRaw}`} className="detail-row">
                       <div>
                         <span>Token</span>
                         <strong>{candidate.token}</strong>
@@ -650,7 +650,7 @@ export function App() {
                       </div>
                       <div>
                         <span>Evidence</span>
-                        <strong>{candidate.evidencePath ?? candidate.source}</strong>
+                        <strong>{candidate.path}</strong>
                       </div>
                     </article>
                   ))}
