@@ -141,6 +141,8 @@ async function loadSnapshotWithFallback(): Promise<{
 export function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSavingResearchSnapshot, setIsSavingResearchSnapshot] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -188,6 +190,40 @@ export function App() {
   const demoWatchlist = watchlists[0];
   const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
   const serverConnected = apiClientMode === "server";
+
+  async function handleResearchSave() {
+    if (!serverConnected) {
+      setSaveStatus("Research save is available only when connected to the Watchtower server.");
+      return;
+    }
+
+    setIsSavingResearchSnapshot(true);
+    setSaveStatus("Saving live snapshot as research evidence…");
+
+    try {
+      const saveResult = await apiClient.researchSaveLiveSnapshot();
+      const refreshedHistory = await apiClient.getSnapshotHistory({ limit: 5 });
+
+      setData((current) => current
+        ? {
+            ...current,
+            latestSnapshot: saveResult.snapshot,
+            snapshotHistory: refreshedHistory,
+            notices: [
+              `Research snapshot saved: ${saveResult.snapshot.snapshotId}.`,
+              ...current.notices
+            ]
+          }
+        : current
+      );
+
+      setSaveStatus(`Saved research snapshot ${saveResult.snapshot.snapshotId}. Temporary in-memory evidence only.`);
+    } catch (caughtError) {
+      setSaveStatus(`Research save failed: ${caughtError instanceof Error ? caughtError.message : "unknown error"}.`);
+    } finally {
+      setIsSavingResearchSnapshot(false);
+    }
+  }
 
   return (
     <main className="telegram-shell">
@@ -309,6 +345,18 @@ export function App() {
         {snapshotHistory ? (
           <>
             <p>{snapshotHistory.storage.warning}</p>
+            <div className="action-stack">
+              <button
+                type="button"
+                className="button-primary"
+                onClick={handleResearchSave}
+                disabled={!serverConnected || isSavingResearchSnapshot}
+              >
+                {isSavingResearchSnapshot ? "Saving…" : "Save current live snapshot"}
+              </button>
+              <p>Research saves are temporary and are not confirmed balance records.</p>
+            </div>
+            {saveStatus ? <p className="status-message">{saveStatus}</p> : null}
             {snapshotHistory.snapshots.length > 0 ? (
               <div className="history-list">
                 {snapshotHistory.snapshots.map((snapshot) => (

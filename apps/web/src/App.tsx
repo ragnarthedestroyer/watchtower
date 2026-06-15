@@ -142,6 +142,8 @@ async function loadSnapshotWithFallback(): Promise<{
 export function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSavingResearchSnapshot, setIsSavingResearchSnapshot] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -207,6 +209,40 @@ export function App() {
   const snapshotDecision = latestSnapshot.policyDecision ?? health.snapshotPolicy;
   const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
   const serverConnected = apiClientMode === "server";
+
+  async function handleResearchSave() {
+    if (!serverConnected) {
+      setSaveStatus("Research save is available only when the web app is connected to the Watchtower server.");
+      return;
+    }
+
+    setIsSavingResearchSnapshot(true);
+    setSaveStatus("Saving current live snapshot as research evidence…");
+
+    try {
+      const saveResult = await apiClient.researchSaveLiveSnapshot();
+      const refreshedHistory = await apiClient.getSnapshotHistory({ limit: 10 });
+
+      setData((current) => current
+        ? {
+            ...current,
+            latestSnapshot: saveResult.snapshot,
+            snapshotHistory: refreshedHistory,
+            notices: [
+              `Research snapshot saved: ${saveResult.snapshot.snapshotId}.`,
+              ...current.notices
+            ]
+          }
+        : current
+      );
+
+      setSaveStatus(`Saved research snapshot ${saveResult.snapshot.snapshotId}. This is temporary in-memory evidence only.`);
+    } catch (caughtError) {
+      setSaveStatus(`Research save failed: ${caughtError instanceof Error ? caughtError.message : "unknown error"}.`);
+    } finally {
+      setIsSavingResearchSnapshot(false);
+    }
+  }
 
   return (
     <main className="page-shell">
@@ -443,6 +479,20 @@ export function App() {
         {snapshotHistory ? (
           <>
             <p className="muted">{snapshotHistory.storage.warning}</p>
+            <div className="action-row">
+              <button
+                type="button"
+                className="button-primary"
+                onClick={handleResearchSave}
+                disabled={!serverConnected || isSavingResearchSnapshot}
+              >
+                {isSavingResearchSnapshot ? "Saving research snapshot…" : "Save current live snapshot as research evidence"}
+              </button>
+              <p className="muted">
+                This stores a blocked/live snapshot in memory for inspection only. It is not a confirmed balance record.
+              </p>
+            </div>
+            {saveStatus ? <p className="status-message">{saveStatus}</p> : null}
             {snapshotHistory.snapshots.length > 0 ? (
               <div className="history-table">
                 {snapshotHistory.snapshots.map((snapshot) => (

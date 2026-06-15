@@ -172,3 +172,34 @@ code {
   overflow-wrap: anywhere;
   color: #bbf7d0;
 }
+
+
+.action-stack {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.button-primary {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.85rem 1rem;
+  background: #86efac;
+  color: #052e16;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.button-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.status-message {
+  border: 1px solid rgba(134, 239, 172, 0.24);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  background: rgba(22, 101, 52, 0.2);
+  color: #dcfce7;
+}
