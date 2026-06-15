@@ -9,6 +9,7 @@ import {
   type SnapshotHistoryResponse,
   type SnapshotResponse,
   type AccountInspectionResponse,
+  type DecoderResearchReportResponse,
   type WatchlistsResponse
 } from "@watchtower/api";
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
@@ -167,6 +168,9 @@ export function App() {
   const [accountInspection, setAccountInspection] = useState<AccountInspectionResponse | null>(null);
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionError, setInspectionError] = useState<string | null>(null);
+  const [decoderResearchReport, setDecoderResearchReport] = useState<DecoderResearchReportResponse | null>(null);
+  const [decoderResearchLoading, setDecoderResearchLoading] = useState(false);
+  const [decoderResearchError, setDecoderResearchError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -288,6 +292,46 @@ export function App() {
       setInspectionError(caughtError instanceof Error ? caughtError.message : "Unknown account-inspection error.");
     } finally {
       setInspectionLoading(false);
+    }
+  }
+
+
+  async function generateDecoderResearchReport() {
+    const address = accountAddressInput.trim();
+    const accountId = accountIdInput.trim();
+    const dappId = dappIdInput.trim();
+
+    setDecoderResearchReport(null);
+    setDecoderResearchError(null);
+
+    if (apiClientMode !== "server") {
+      setDecoderResearchError("Decoder research reports are only available when connected to the Watchtower server.");
+      return;
+    }
+
+    if (accountInspectionMode === "legacy" && !address) {
+      setDecoderResearchError("Enter a legacy address such as 0:<64hex> before generating a decoder research report.");
+      return;
+    }
+
+    if (accountInspectionMode === "state_v2" && (!accountId || !dappId)) {
+      setDecoderResearchError("Enter both State V2 account_id and dapp_id before generating a decoder research report.");
+      return;
+    }
+
+    setDecoderResearchLoading(true);
+
+    try {
+      const report = await apiClient.getDecoderResearchReport(
+        accountInspectionMode === "legacy"
+          ? { address }
+          : { accountId, dappId }
+      );
+      setDecoderResearchReport(report);
+    } catch (caughtError) {
+      setDecoderResearchError(caughtError instanceof Error ? caughtError.message : "Unknown decoder-research error.");
+    } finally {
+      setDecoderResearchLoading(false);
     }
   }
 
@@ -589,6 +633,123 @@ export function App() {
         )}
 
         {inspectionError ? <p className="error-text">{inspectionError}</p> : null}
+
+        <div className="research-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void generateDecoderResearchReport()}
+            disabled={decoderResearchLoading}
+          >
+            {decoderResearchLoading ? "Generating report…" : "Generate decoder research report"}
+          </button>
+          <span className="muted">Uses <code>/decoder/research-report</code> and keeps results as research evidence only.</span>
+        </div>
+
+        {decoderResearchError ? <p className="error-text">{decoderResearchError}</p> : null}
+
+
+        {decoderResearchReport ? (
+          <div className="detail-stack research-report-panel">
+            <div className="panel-heading compact-heading">
+              <div>
+                <span className="card-label">Decoder Research</span>
+                <h3>Research report</h3>
+              </div>
+              <StatusBadge
+                label={humanStatusLabel(decoderResearchReport.status)}
+                tone={decoderResearchReport.status === "blocked" ? "danger" : decoderResearchReport.status === "ready_for_manual_review" ? "success" : "warning"}
+              />
+            </div>
+
+            <div className="definition-grid">
+              <div>
+                <span>Report ID</span>
+                <code>{decoderResearchReport.reportId}</code>
+              </div>
+              <div>
+                <span>Generated</span>
+                <strong>{new Date(decoderResearchReport.generatedAt).toLocaleString()}</strong>
+              </div>
+              <div>
+                <span>Account mode</span>
+                <strong>{humanStatusLabel(decoderResearchReport.account.mode)}</strong>
+              </div>
+              <div>
+                <span>BOC present</span>
+                <StatusBadge label={decoderResearchReport.account.bocPresent ? "Yes" : "No"} tone={decoderResearchReport.account.bocPresent ? "success" : "warning"} />
+              </div>
+              <div>
+                <span>Classification</span>
+                <strong>{humanStatusLabel(decoderResearchReport.classification.kind)}</strong>
+              </div>
+              <div>
+                <span>Candidate groups</span>
+                <strong>{decoderResearchReport.candidateGroups.length}</strong>
+              </div>
+            </div>
+
+            <div className="split-list">
+              <div>
+                <h3>Blockers</h3>
+                {decoderResearchReport.blockers.length > 0 ? (
+                  <ul>{decoderResearchReport.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul>
+                ) : (
+                  <p className="muted">No research blockers returned.</p>
+                )}
+              </div>
+              <div>
+                <h3>Suggested next steps</h3>
+                {decoderResearchReport.suggestedNextSteps.length > 0 ? (
+                  <ul>{decoderResearchReport.suggestedNextSteps.map((step) => <li key={step}>{step}</li>)}</ul>
+                ) : (
+                  <p className="muted">No suggested next steps returned.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="detail-box">
+              <h3>Candidate groups</h3>
+              {decoderResearchReport.candidateGroups.length > 0 ? (
+                <div className="detail-table">
+                  {decoderResearchReport.candidateGroups.map((group) => (
+                    <article key={group.kind} className="detail-row">
+                      <div>
+                        <span>Kind</span>
+                        <strong>{humanStatusLabel(group.kind)}</strong>
+                      </div>
+                      <div>
+                        <span>Count</span>
+                        <strong>{group.count}</strong>
+                      </div>
+                      <div>
+                        <span>Confidence</span>
+                        <strong>{group.confidenceLevels.map(humanStatusLabel).join(", ")}</strong>
+                      </div>
+                      <div>
+                        <span>Sample raw amounts</span>
+                        <code>{group.sampleAmountsRaw.join(", ") || "none"}</code>
+                      </div>
+                      <div className="wide-cell">
+                        <span>Paths</span>
+                        <code>{group.paths.join(", ") || "none"}</code>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">No grouped candidates returned.</p>
+              )}
+            </div>
+
+            {decoderResearchReport.warnings.length > 0 ? (
+              <div className="detail-box">
+                <h3>Research warnings</h3>
+                <ul>{decoderResearchReport.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {accountInspection ? (
           <div className="detail-stack">

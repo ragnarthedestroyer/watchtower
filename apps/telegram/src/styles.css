@@ -344,3 +344,24 @@ code {
 .readiness-item p {
   margin: 0.25rem 0 0;
 }
+
+.research-actions {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.75rem 0 0.9rem;
+}
+
+.research-report-panel {
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  border-radius: 16px;
+  padding: 0.85rem;
+  background: rgba(14, 165, 233, 0.06);
+}
+
+.compact-heading {
+  margin-bottom: 0.6rem;
+}
+
+.wide-cell {
+  grid-column: 1 / -1;
+}
