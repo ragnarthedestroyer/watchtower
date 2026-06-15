@@ -135,6 +135,36 @@ export function buildWatchtowerRouteCatalog(): WatchtowerRouteCatalog {
       },
       {
         method: "GET",
+        path: "/decoder/research-report",
+        mode: "live-read",
+        description: "Builds a structured decoder research report from an inspected account response.",
+        queryParams: [
+          {
+            name: "address",
+            required: false,
+            description: "Legacy address in 0:<64hex> or -1:<64hex> format."
+          },
+          {
+            name: "account_id",
+            required: false,
+            description: "State V2 account ID as a 64-character hexadecimal string."
+          },
+          {
+            name: "dapp_id",
+            required: false,
+            description: "State V2 DApp ID as a 64-character hexadecimal string. Falls back to WATCHTOWER_DAPP_ID when configured."
+          }
+        ],
+        safetyNotes: [
+          "Read-only.",
+          "Research/debug endpoint.",
+          "Groups balance candidates and blockers but does not confirm balances.",
+          "Designed to support decoder research across known accounts."
+        ]
+      },
+
+      {
+        method: "GET",
         path: "/epoch/mobile-verifier",
         mode: "live-read",
         description: "Reads the Mobile Verifier root account and runs the conservative epoch decoder attempt.",

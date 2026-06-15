@@ -58,6 +58,7 @@ export type WatchtowerApiClient = {
   getConfigStatus(): Promise<ConfigStatusResponse>;
   getRawAccount(params: RawAccountClientParams): Promise<RawAccountResponse>;
   inspectAccount(params: RawAccountClientParams): Promise<AccountInspectionResponse>;
+  getDecoderResearchReport(params: RawAccountClientParams): Promise<DecoderResearchReportResponse>;
   getMobileVerifierEpoch(params?: MobileVerifierClientParams): Promise<MobileVerifierEpochResponse>;
   getLiveSnapshot(params?: LiveSnapshotClientParams): Promise<LiveSnapshotResponse>;
   researchSaveLiveSnapshot(params?: LiveSnapshotClientParams): Promise<ResearchSaveLiveSnapshotResponse>;
@@ -202,6 +203,15 @@ export function createWatchtowerApiClient(
     async inspectAccount(params: RawAccountClientParams): Promise<AccountInspectionResponse> {
       const response = await transport(buildRequest("/accounts/inspect", baseUrl, accountSearchParams(params)));
       return readApiJson<AccountInspectionResponse>(response);
+    },
+
+    async getDecoderResearchReport(
+      params: RawAccountClientParams
+    ): Promise<DecoderResearchReportResponse> {
+      const response = await transport(
+        buildRequest("/decoder/research-report", baseUrl, accountSearchParams(params))
+      );
+      return readApiJson<DecoderResearchReportResponse>(response);
     },
 
     async getMobileVerifierEpoch(

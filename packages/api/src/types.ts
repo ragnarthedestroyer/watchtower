@@ -11,6 +11,7 @@ import type { LiveSnapshotBuildResult } from "./live-snapshot";
 import type { MobileVerifierRootReadResult } from "./mobile-verifier";
 import type { WatchtowerRouteCatalog } from "./route-catalog";
 import type { WatchtowerMvpReadinessResponse } from "./mvp-readiness";
+import type { DecoderResearchReport } from "./decoder-research-report";
 import type {
   WatchtowerSnapshotHistoryDetail,
   WatchtowerSnapshotHistorySummary
@@ -51,6 +52,8 @@ export type ConfigStatusResponse = {
 export type RawAccountResponse = RawAccountReadResult;
 
 export type AccountInspectionResponse = AccountInspectionResult;
+
+export type DecoderResearchReportResponse = DecoderResearchReport;
 
 export type MobileVerifierEpochResponse = MobileVerifierRootReadResult;
 

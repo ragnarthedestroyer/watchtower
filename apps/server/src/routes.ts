@@ -3,6 +3,7 @@ import {
   buildWatchtowerRouteCatalog,
   buildWatchtowerMvpReadiness,
   buildLiveSnapshot,
+  buildDecoderResearchReport,
   buildDemoWatchlists,
   handleWatchtowerRequest,
   inspectRawAccountReadResult,
@@ -200,6 +201,44 @@ async function rawAccountInspectionResponse(
     {
       ok: inspection.ok,
       data: inspection,
+      errors: inspection.errors
+    },
+    env,
+    inspection.ok ? 200 : 400
+  );
+}
+
+
+async function decoderResearchReportResponse(
+  url: URL,
+  env: ServerEnv
+): Promise<Response> {
+  if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [
+          "Decoder research reports require live-read mode and a valid endpoint configuration.",
+          ...env.endpointConfig.errors
+        ]
+      },
+      env,
+      503
+    );
+  }
+
+  const result = await readLiveRawAccount({
+    endpointConfig: env.endpointConfig,
+    request: rawAccountRequestFromUrl(url, env)
+  });
+
+  const inspection = inspectRawAccountReadResult(result);
+  const report = buildDecoderResearchReport(inspection);
+
+  return jsonResponse(
+    {
+      ok: inspection.ok,
+      data: report,
       errors: inspection.errors
     },
     env,
@@ -481,6 +520,11 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/accounts/inspect") {
     return rawAccountInspectionResponse(url, env);
+  }
+
+
+  if (request.method === "GET" && path === "/decoder/research-report") {
+    return decoderResearchReportResponse(url, env);
   }
 
   if (request.method === "GET" && path === "/epoch/mobile-verifier") {
