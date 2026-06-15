@@ -21,7 +21,9 @@
     "dev:server": "npm run server:dev",
     "smoke:server": "node apps/server/scripts/smoke-test.mjs",
     "smoke:live": "node apps/server/scripts/live-read-smoke-test.mjs",
-    "test:urls": "node apps/server/scripts/print-test-urls.mjs"
+    "test:urls": "node apps/server/scripts/print-test-urls.mjs",
+    "preview:watchtower": "node apps/server/scripts/dev-preview.mjs",
+    "preview:help": "node apps/server/scripts/preview-help.mjs"
   },
   "keywords": [
     "acki-nacki",
