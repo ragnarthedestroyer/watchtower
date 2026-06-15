@@ -7,7 +7,7 @@ export type WatchtowerRouteQueryParam = {
 };
 
 export type WatchtowerRouteInfo = {
-  method: "GET";
+  method: "GET" | "POST";
   path: string;
   mode: WatchtowerRouteMode;
   description: string;
@@ -156,6 +156,26 @@ export function buildWatchtowerRouteCatalog(): WatchtowerRouteCatalog {
           "Read-only in the current implementation.",
           "Does not persist snapshots.",
           "Snapshot saving remains blocked unless safety policy returns SAFE_TO_SAVE."
+        ]
+      },
+
+      {
+        method: "GET",
+        path: "/snapshots/live/research-save",
+        mode: "live-read",
+        description: "POST-only server route that builds a live snapshot and stores it in the in-memory schema store for research/history evidence.",
+        queryParams: [
+          {
+            name: "mv_root_address",
+            required: false,
+            description: "Optional Mobile Verifier root legacy address override for testing."
+          }
+        ],
+        safetyNotes: [
+          "Use POST, not GET; this route changes server memory state.",
+          "Stores research/history evidence only, not confirmed portfolio data.",
+          "Blocked snapshots can be stored only with explicit research-save behavior.",
+          "In-memory storage resets when the server restarts."
         ]
       },
       {

@@ -10,12 +10,14 @@ import {
   type RawAccountReadRequest
 } from "@watchtower/api";
 import { endpointConfigIsUsableForLiveReads } from "@watchtower/core";
+import { persistSnapshot } from "@watchtower/db";
 import type { ServerEnv } from "./env";
+import { getServerSchemaStore } from "./server-store";
 
 export function buildCorsHeaders(env: ServerEnv): HeadersInit {
   return {
     "access-control-allow-origin": env.allowedOrigin,
-    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-allow-headers": "content-type, authorization",
     "access-control-max-age": "86400"
   };
@@ -153,8 +155,6 @@ async function rawAccountResponse(url: URL, env: ServerEnv): Promise<Response> {
   );
 }
 
-
-
 async function rawAccountInspectionResponse(
   url: URL,
   env: ServerEnv
@@ -228,6 +228,32 @@ async function mobileVerifierEpochResponse(
   );
 }
 
+function liveSnapshotInputFromUrl(
+  url: URL,
+  env: ServerEnv
+): Parameters<typeof buildLiveSnapshot>[0] | { error: string } {
+  const rootAddress = url.searchParams.get("mv_root_address")?.trim();
+  const watchlist = buildDemoWatchlists()[0];
+
+  if (!watchlist) {
+    return {
+      error: "No watchlist is available for live snapshot building."
+    };
+  }
+
+  const input: Parameters<typeof buildLiveSnapshot>[0] = {
+    endpointConfig: env.endpointConfig,
+    watchlist,
+    runtime: env.runtime
+  };
+
+  if (rootAddress) {
+    input.mobileVerifierRootAddress = rootAddress;
+  }
+
+  return input;
+}
+
 async function liveSnapshotResponse(url: URL, env: ServerEnv): Promise<Response> {
   if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
     return jsonResponse(
@@ -243,28 +269,17 @@ async function liveSnapshotResponse(url: URL, env: ServerEnv): Promise<Response>
     );
   }
 
-  const rootAddress = url.searchParams.get("mv_root_address")?.trim();
-  const watchlist = buildDemoWatchlists()[0];
+  const input = liveSnapshotInputFromUrl(url, env);
 
-  if (!watchlist) {
+  if ("error" in input) {
     return jsonResponse(
       {
         ok: false,
-        errors: ["No watchlist is available for live snapshot building."]
+        errors: [input.error]
       },
       env,
       500
     );
-  }
-
-  const input: Parameters<typeof buildLiveSnapshot>[0] = {
-    endpointConfig: env.endpointConfig,
-    watchlist,
-    runtime: env.runtime
-  };
-
-  if (rootAddress) {
-    input.mobileVerifierRootAddress = rootAddress;
   }
 
   const result = await buildLiveSnapshot(input);
@@ -277,6 +292,65 @@ async function liveSnapshotResponse(url: URL, env: ServerEnv): Promise<Response>
     },
     env,
     result.errors.length === 0 ? 200 : 400
+  );
+}
+
+async function liveSnapshotResearchSaveResponse(
+  url: URL,
+  env: ServerEnv
+): Promise<Response> {
+  if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [
+          "Research snapshot persistence requires live-read mode and a valid endpoint configuration.",
+          ...env.endpointConfig.errors
+        ]
+      },
+      env,
+      503
+    );
+  }
+
+  const input = liveSnapshotInputFromUrl(url, env);
+
+  if ("error" in input) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [input.error]
+      },
+      env,
+      500
+    );
+  }
+
+  const result = await buildLiveSnapshot(input);
+  const store = getServerSchemaStore();
+  const persistence = persistSnapshot({
+    store,
+    watchlistId: input.watchlist.id,
+    snapshot: result.snapshot,
+    mode: "save-research-even-if-blocked"
+  });
+
+  return jsonResponse(
+    {
+      ok: result.errors.length === 0 && persistence.ok,
+      data: {
+        snapshot: result.snapshot,
+        mobileVerifier: result.mobileVerifier,
+        persistence,
+        warnings: [
+          ...result.warnings,
+          "This endpoint stores research/history evidence in server memory only. It is not confirmed portfolio data and will reset when the server restarts."
+        ]
+      },
+      errors: [...result.errors, ...persistence.errors]
+    },
+    env,
+    result.errors.length === 0 && persistence.ok ? 200 : 400
   );
 }
 
@@ -320,6 +394,10 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/snapshots/live") {
     return liveSnapshotResponse(url, env);
+  }
+
+  if (request.method === "POST" && path === "/snapshots/live/research-save") {
+    return liveSnapshotResearchSaveResponse(url, env);
   }
 
   const response = await handleWatchtowerRequest(request, {
