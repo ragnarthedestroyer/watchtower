@@ -24,10 +24,6 @@ select {
   font: inherit;
 }
 
-code {
-  overflow-wrap: anywhere;
-}
-
 .telegram-shell {
   width: min(100%, 640px);
   margin: 0 auto;
@@ -37,7 +33,6 @@ code {
 .hero-card,
 .runtime-card,
 .warning-card,
-.notice-card,
 .status-row {
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(15, 23, 42, 0.82);
@@ -47,16 +42,10 @@ code {
 
 .hero-card,
 .runtime-card,
-.warning-card,
-.notice-card {
+.warning-card {
   border-radius: 1.25rem;
   padding: 1.25rem;
   margin-bottom: 1rem;
-}
-
-.notice-card {
-  border-color: rgba(250, 204, 21, 0.34);
-  background: rgba(113, 63, 18, 0.2);
 }
 
 .hero-card h1,
@@ -66,10 +55,7 @@ code {
 
 .hero-card p,
 .runtime-card p,
-.warning-card p,
-.notice-card p,
-.warning-card li,
-.notice-card li {
+.warning-card p {
   color: #cbd5e1;
   line-height: 1.55;
 }
@@ -136,47 +122,53 @@ code {
   color: #e2e8f0;
 }
 
-.mini-grid {
+.compact-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-  margin: 1rem 0;
+  margin-top: 1rem;
 }
 
-.mini-grid div,
-.compact-list {
-  border: 1px solid rgba(148, 163, 184, 0.16);
+.compact-grid > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 0.9rem;
+  padding: 0.8rem;
+  background: rgba(2, 6, 23, 0.32);
+}
+
+.compact-grid span:first-child {
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.history-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.history-item {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 0.9rem;
   padding: 0.85rem;
-  background: rgba(15, 23, 42, 0.42);
+  background: rgba(2, 6, 23, 0.32);
 }
 
-.mini-grid span {
-  display: block;
-  color: #94a3b8;
-  font-size: 0.8rem;
-  margin-bottom: 0.45rem;
+.history-item strong {
+  overflow-wrap: anywhere;
 }
 
-ul {
-  padding-left: 1.2rem;
+.history-item small,
+.history-item span {
+  color: #cbd5e1;
 }
 
-li {
-  margin: 0.6rem 0;
-}
-
-@media (max-width: 420px) {
-  .telegram-shell {
-    padding: 0.75rem;
-  }
-
-  .status-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .mini-grid {
-    grid-template-columns: 1fr;
-  }
+code {
+  overflow-wrap: anywhere;
+  color: #bbf7d0;
 }

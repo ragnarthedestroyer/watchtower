@@ -4,6 +4,7 @@ import {
   type HealthResponse,
   type LiveSnapshotResponse,
   type RouteCatalogResponse,
+  type SnapshotHistoryResponse,
   type SnapshotResponse,
   type WatchlistsResponse
 } from "@watchtower/api";
@@ -12,17 +13,18 @@ import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtowe
 import { apiClient, apiClientBaseUrl, apiClientMode } from "./api-client";
 import { initializeTelegramApp } from "./telegram";
 
-type Tone = "success" | "warning" | "danger" | "neutral";
-
 type AppData = {
   health: HealthResponse;
   watchlists: WatchlistsResponse["watchlists"];
   latestSnapshot: SnapshotResponse["snapshot"];
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  snapshotHistory: SnapshotHistoryResponse | null;
   liveSnapshotResult: LiveSnapshotResponse | null;
   notices: string[];
 };
+
+type Tone = "success" | "warning" | "danger" | "neutral";
 
 const telegram = initializeTelegramApp();
 
@@ -40,7 +42,7 @@ function LoadingCard() {
       <section className="hero-card">
         <p className="eyebrow">Telegram Mini App</p>
         <h1>Acki Watchtower</h1>
-        <p>Loading Watchtower status…</p>
+        <p>Loading Watchtower API client data…</p>
       </section>
     </main>
   );
@@ -61,6 +63,7 @@ function ErrorCard(props: { message: string }) {
 async function loadOptionalServerData(): Promise<{
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  snapshotHistory: SnapshotHistoryResponse | null;
   notices: string[];
 }> {
   const notices: string[] = [];
@@ -69,17 +72,20 @@ async function loadOptionalServerData(): Promise<{
     return {
       configStatus: null,
       routes: null,
-      notices: ["Server-only panels are hidden because the Telegram app is using local demo transport."]
+      snapshotHistory: null,
+      notices: ["Server panels are hidden because the Telegram app is using local demo transport."]
     };
   }
 
-  const [configResult, routeResult] = await Promise.allSettled([
+  const [configResult, routeResult, historyResult] = await Promise.allSettled([
     apiClient.getConfigStatus(),
-    apiClient.getRoutes()
+    apiClient.getRoutes(),
+    apiClient.getSnapshotHistory({ limit: 5 })
   ]);
 
   const configStatus = configResult.status === "fulfilled" ? configResult.value : null;
   const routes = routeResult.status === "fulfilled" ? routeResult.value : null;
+  const snapshotHistory = historyResult.status === "fulfilled" ? historyResult.value : null;
 
   if (configResult.status === "rejected") {
     notices.push(`Config status could not be loaded: ${configResult.reason instanceof Error ? configResult.reason.message : "unknown error"}.`);
@@ -89,9 +95,14 @@ async function loadOptionalServerData(): Promise<{
     notices.push(`Route catalog could not be loaded: ${routeResult.reason instanceof Error ? routeResult.reason.message : "unknown error"}.`);
   }
 
+  if (historyResult.status === "rejected") {
+    notices.push(`Snapshot history could not be loaded: ${historyResult.reason instanceof Error ? historyResult.reason.message : "unknown error"}.`);
+  }
+
   return {
     configStatus,
     routes,
+    snapshotHistory,
     notices
   };
 }
@@ -106,7 +117,6 @@ async function loadSnapshotWithFallback(): Promise<{
   if (apiClientMode === "server") {
     try {
       const liveSnapshotResult = await apiClient.getLiveSnapshot();
-
       return {
         snapshot: liveSnapshotResult.snapshot,
         liveSnapshotResult,
@@ -114,7 +124,7 @@ async function loadSnapshotWithFallback(): Promise<{
       };
     } catch (caughtError) {
       notices.push(
-        `Live snapshot is not available yet: ${caughtError instanceof Error ? caughtError.message : "unknown error"}. Falling back to latest snapshot.`
+        `Live snapshot is not available yet: ${caughtError instanceof Error ? caughtError.message : "unknown error"}. Falling back to latest demo snapshot.`
       );
     }
   }
@@ -152,6 +162,7 @@ export function App() {
           latestSnapshot: snapshotResult.snapshot,
           configStatus: optionalServerData.configStatus,
           routes: optionalServerData.routes,
+          snapshotHistory: optionalServerData.snapshotHistory,
           liveSnapshotResult: snapshotResult.liveSnapshotResult,
           notices: [...snapshotResult.notices, ...optionalServerData.notices]
         });
@@ -172,11 +183,11 @@ export function App() {
   if (error) return <ErrorCard message={error} />;
   if (!data) return <LoadingCard />;
 
-  const { health, watchlists, latestSnapshot, configStatus, routes, liveSnapshotResult, notices } = data;
+  const { health, watchlists, latestSnapshot, configStatus, routes, snapshotHistory, liveSnapshotResult, notices } = data;
   const snapshotDecision = latestSnapshot.policyDecision ?? health.snapshotPolicy;
-  const serverConnected = apiClientMode === "server";
-  const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
   const demoWatchlist = watchlists[0];
+  const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
+  const serverConnected = apiClientMode === "server";
 
   return (
     <main className="telegram-shell">
@@ -184,13 +195,13 @@ export function App() {
         <p className="eyebrow">Telegram Mini App</p>
         <h1>Acki Watchtower</h1>
         <p>
-          Compact monitoring for server status, runtime configuration, live snapshot readiness,
-          and wallet/account safety.
+          Compact monitoring for wallet/account states, Mobile Verifier epoch health,
+          API trust, route status, and research snapshot history.
         </p>
       </section>
 
       {notices.length > 0 ? (
-        <section className="notice-card">
+        <section className="warning-card">
           <span className="card-label">Notices</span>
           <ul>
             {notices.map((notice) => (
@@ -204,10 +215,11 @@ export function App() {
         <span className="card-label">API Client</span>
         <StatusBadge label={humanStatusLabel(apiClientMode)} tone={serverConnected ? "success" : "warning"} />
         <p>{apiClientBaseUrl}</p>
+        <p>{serverConnected ? "Server-backed mode is configured." : "Local demo mode is active."}</p>
       </section>
 
       <section className="runtime-card">
-        <span className="card-label">Telegram Runtime</span>
+        <span className="card-label">Runtime</span>
         <StatusBadge
           label={telegram.isTelegram ? "Telegram" : "Browser Preview"}
           tone={telegram.isTelegram ? "success" : "warning"}
@@ -218,17 +230,6 @@ export function App() {
       </section>
 
       <section className="status-list">
-        <article className="status-row">
-          <div>
-            <span className="card-label">Server Config</span>
-            <strong>{configStatus ? humanStatusLabel(configStatus.mode) : "Demo Only"}</strong>
-          </div>
-          <StatusBadge
-            label={configStatus ? (configHasErrors ? "Errors" : "Loaded") : "Unavailable"}
-            tone={configStatus ? (configHasErrors ? "danger" : "success") : "warning"}
-          />
-        </article>
-
         <article className="status-row">
           <div>
             <span className="card-label">API Trust</span>
@@ -257,11 +258,11 @@ export function App() {
         </article>
       </section>
 
-      {configStatus ? (
-        <section className="warning-card">
-          <span className="card-label">Config Status</span>
-          <h2>Sanitized server config</h2>
-          <div className="mini-grid">
+      <section className="warning-card">
+        <span className="card-label">Server Config</span>
+        <h2>{configStatus ? (configHasErrors ? "Config needs attention" : humanStatusLabel(configStatus.mode)) : "Not connected"}</h2>
+        {configStatus ? (
+          <div className="compact-grid">
             <div>
               <span>GraphQL</span>
               <StatusBadge label={configStatus.graphqlEndpointConfigured ? "Configured" : "Missing"} tone={toneForBoolean(configStatus.graphqlEndpointConfigured)} />
@@ -274,53 +275,22 @@ export function App() {
               <span>DApp ID</span>
               <StatusBadge label={configStatus.dappIdConfigured ? "Configured" : "Missing"} tone={toneForBoolean(configStatus.dappIdConfigured)} />
             </div>
-            <div>
-              <span>API key</span>
-              <StatusBadge label={configStatus.apiKeyPresent ? "Present" : "Missing"} tone={configStatus.apiKeyPresent ? "success" : "neutral"} />
-            </div>
           </div>
-
-          {configStatus.warnings.length > 0 || configStatus.errors.length > 0 ? (
-            <ul>
-              {[...configStatus.errors, ...configStatus.warnings].map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>No config warnings or errors returned.</p>
-          )}
-        </section>
-      ) : null}
-
-      <section className="warning-card">
-        <span className="card-label">Latest Snapshot</span>
-        <h2>{humanStatusLabel(latestSnapshot.policyDecision.mode)}</h2>
-        <p>
-          Source: {liveSnapshotResult ? "server /snapshots/live" : "fallback /snapshots/latest"}
-        </p>
-        <p>
-          {latestSnapshot.totals.walletCount} wallets · {latestSnapshot.totals.successfulWallets} ok · {latestSnapshot.totals.partialWallets} partial · {latestSnapshot.totals.skippedWallets} skipped
-        </p>
-        <p>Confirmed NACKL: {latestSnapshot.totals.confirmedNacklFormatted ?? "Not confirmed"}</p>
-
-        {liveSnapshotResult ? (
-          <div className="compact-list">
-            <strong>Live warnings/errors</strong>
-            {[...liveSnapshotResult.errors, ...liveSnapshotResult.warnings].length > 0 ? (
-              <ul>
-                {[...liveSnapshotResult.errors, ...liveSnapshotResult.warnings].map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>No live snapshot warnings returned.</p>
-            )}
-          </div>
-        ) : null}
+        ) : (
+          <p>Server configuration is available only when Telegram is connected to the Watchtower backend.</p>
+        )}
       </section>
 
       <section className="warning-card">
-        <span className="card-label">Wallet Snapshot State</span>
+        <span className="card-label">Latest snapshot</span>
+        <h2>{humanStatusLabel(latestSnapshot.policyDecision.mode)}</h2>
+        <p>
+          Source: {liveSnapshotResult ? "Server /snapshots/live" : "Fallback /snapshots/latest"}
+        </p>
+        <p>
+          {latestSnapshot.totals.walletCount} wallets · {latestSnapshot.totals.partialWallets} partial · {latestSnapshot.totals.skippedWallets} skipped
+        </p>
+        <p>Confirmed NACKL: {latestSnapshot.totals.confirmedNacklFormatted ?? "Not confirmed"}</p>
         <ul>
           {latestSnapshot.wallets.map((wallet) => (
             <li key={wallet.walletId}>
@@ -331,6 +301,47 @@ export function App() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="warning-card">
+        <span className="card-label">Research history</span>
+        <h2>{snapshotHistory ? `${snapshotHistory.snapshots.length} saved snapshots` : "Unavailable"}</h2>
+        {snapshotHistory ? (
+          <>
+            <p>{snapshotHistory.storage.warning}</p>
+            {snapshotHistory.snapshots.length > 0 ? (
+              <div className="history-list">
+                {snapshotHistory.snapshots.map((snapshot) => (
+                  <article key={snapshot.snapshotId} className="history-item">
+                    <strong>{snapshot.snapshotId}</strong>
+                    <small>{new Date(snapshot.createdAt).toLocaleString()}</small>
+                    <span>{humanStatusLabel(snapshot.policyMode)} · {snapshot.walletCount} wallets · {snapshot.policyReasonCount} reasons</span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>No research snapshots are stored yet.</p>
+            )}
+          </>
+        ) : (
+          <p>History is available only when connected to the Watchtower server.</p>
+        )}
+      </section>
+
+      <section className="warning-card">
+        <span className="card-label">Routes</span>
+        <h2>{routes ? `${routes.routes.length} available routes` : "Unavailable"}</h2>
+        {routes ? (
+          <ul>
+            {routes.routes.slice(0, 6).map((route) => (
+              <li key={`${route.method}-${route.path}`}>
+                <code>{route.method} {route.path}</code>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>Route catalog is available only from the server.</p>
+        )}
       </section>
 
       {demoWatchlist ? (
@@ -352,25 +363,7 @@ export function App() {
         </section>
       ) : null}
 
-      {routes ? (
-        <section className="warning-card">
-          <span className="card-label">Routes</span>
-          <h2>{routes.routes.length} safe routes</h2>
-          <ul>
-            {routes.routes.slice(0, 6).map((route) => (
-              <li key={route.path}>
-                <code>{route.method} {route.path}</code>
-                <br />
-                {route.description}
-              </li>
-            ))}
-          </ul>
-          {routes.routes.length > 6 ? <p>{routes.routes.length - 6} more routes available in the web status panel.</p> : null}
-        </section>
-      ) : null}
-
       <section className="warning-card">
-        <span className="card-label">Safety</span>
         <h2>Snapshot safety first</h2>
         {snapshotDecision && snapshotDecision.reasons.length > 0 ? (
           <ul>
@@ -379,7 +372,7 @@ export function App() {
             ))}
           </ul>
         ) : (
-          <p>No blocking reasons in the current snapshot policy decision.</p>
+          <p>No blocking reasons in the current health response.</p>
         )}
       </section>
     </main>
