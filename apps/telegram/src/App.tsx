@@ -4,6 +4,7 @@ import {
   type HealthResponse,
   type LiveSnapshotResponse,
   type RouteCatalogResponse,
+  type SnapshotHistoryDetailResponse,
   type SnapshotHistoryResponse,
   type SnapshotResponse,
   type WatchlistsResponse
@@ -141,8 +142,10 @@ async function loadSnapshotWithFallback(): Promise<{
 export function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSavingResearchSnapshot, setIsSavingResearchSnapshot] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
+  const [selectedSnapshotDetail, setSelectedSnapshotDetail] = useState<SnapshotHistoryDetailResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -182,6 +185,32 @@ export function App() {
     };
   }, []);
 
+  async function loadSnapshotDetail(snapshotId: string) {
+    setSelectedSnapshotId(snapshotId);
+    setSelectedSnapshotDetail(null);
+    setDetailError(null);
+
+    if (apiClientMode !== "server") {
+      setDetailError("Snapshot detail is only available when connected to the Watchtower server.");
+      return;
+    }
+
+    setDetailLoading(true);
+
+    try {
+      const detail = await apiClient.getSnapshotHistoryDetail({ snapshotId });
+      setSelectedSnapshotDetail(detail);
+
+      if (!detail) {
+        setDetailError("The selected snapshot was not found in the in-memory store.");
+      }
+    } catch (caughtError) {
+      setDetailError(caughtError instanceof Error ? caughtError.message : "Unknown snapshot-detail error.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
   if (error) return <ErrorCard message={error} />;
   if (!data) return <LoadingCard />;
 
@@ -190,40 +219,6 @@ export function App() {
   const demoWatchlist = watchlists[0];
   const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
   const serverConnected = apiClientMode === "server";
-
-  async function handleResearchSave() {
-    if (!serverConnected) {
-      setSaveStatus("Research save is available only when connected to the Watchtower server.");
-      return;
-    }
-
-    setIsSavingResearchSnapshot(true);
-    setSaveStatus("Saving live snapshot as research evidence…");
-
-    try {
-      const saveResult = await apiClient.researchSaveLiveSnapshot();
-      const refreshedHistory = await apiClient.getSnapshotHistory({ limit: 5 });
-
-      setData((current) => current
-        ? {
-            ...current,
-            latestSnapshot: saveResult.snapshot,
-            snapshotHistory: refreshedHistory,
-            notices: [
-              `Research snapshot saved: ${saveResult.snapshot.snapshotId}.`,
-              ...current.notices
-            ]
-          }
-        : current
-      );
-
-      setSaveStatus(`Saved research snapshot ${saveResult.snapshot.snapshotId}. Temporary in-memory evidence only.`);
-    } catch (caughtError) {
-      setSaveStatus(`Research save failed: ${caughtError instanceof Error ? caughtError.message : "unknown error"}.`);
-    } finally {
-      setIsSavingResearchSnapshot(false);
-    }
-  }
 
   return (
     <main className="telegram-shell">
@@ -345,18 +340,6 @@ export function App() {
         {snapshotHistory ? (
           <>
             <p>{snapshotHistory.storage.warning}</p>
-            <div className="action-stack">
-              <button
-                type="button"
-                className="button-primary"
-                onClick={handleResearchSave}
-                disabled={!serverConnected || isSavingResearchSnapshot}
-              >
-                {isSavingResearchSnapshot ? "Saving…" : "Save current live snapshot"}
-              </button>
-              <p>Research saves are temporary and are not confirmed balance records.</p>
-            </div>
-            {saveStatus ? <p className="status-message">{saveStatus}</p> : null}
             {snapshotHistory.snapshots.length > 0 ? (
               <div className="history-list">
                 {snapshotHistory.snapshots.map((snapshot) => (
@@ -364,6 +347,13 @@ export function App() {
                     <strong>{snapshot.snapshotId}</strong>
                     <small>{new Date(snapshot.createdAt).toLocaleString()}</small>
                     <span>{humanStatusLabel(snapshot.policyMode)} · {snapshot.walletCount} wallets · {snapshot.policyReasonCount} reasons</span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => void loadSnapshotDetail(snapshot.snapshotId)}
+                    >
+                      View detail
+                    </button>
                   </article>
                 ))}
               </div>
@@ -373,6 +363,102 @@ export function App() {
           </>
         ) : (
           <p>History is available only when connected to the Watchtower server.</p>
+        )}
+      </section>
+
+      <section className="warning-card">
+        <span className="card-label">History detail</span>
+        <h2>{selectedSnapshotId ? "Selected snapshot" : "No selection"}</h2>
+
+        {!selectedSnapshotId ? (
+          <p>Select a saved research snapshot to inspect stored evidence, wallet records, and balance candidates.</p>
+        ) : detailLoading ? (
+          <p>Loading snapshot detail…</p>
+        ) : detailError ? (
+          <p className="error-text">{detailError}</p>
+        ) : selectedSnapshotDetail ? (
+          <div className="detail-stack">
+            <div className="detail-box">
+              <strong>{selectedSnapshotDetail.snapshot.id}</strong>
+              <p>{new Date(selectedSnapshotDetail.snapshot.createdAt).toLocaleString()}</p>
+              <p>Policy: {humanStatusLabel(selectedSnapshotDetail.snapshot.policyMode)}</p>
+              <p>Safe to save: {selectedSnapshotDetail.snapshot.safeToSave ? "yes" : "no"}</p>
+            </div>
+
+            {selectedSnapshotDetail.snapshot.policyReasons.length > 0 ? (
+              <div className="detail-box">
+                <h3>Policy reasons</h3>
+                <ul>
+                  {selectedSnapshotDetail.snapshot.policyReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="detail-box">
+              <h3>API health</h3>
+              {selectedSnapshotDetail.apiHealth ? (
+                <ul>
+                  <li>Status: {humanStatusLabel(selectedSnapshotDetail.apiHealth.status)}</li>
+                  <li>Reachable: {selectedSnapshotDetail.apiHealth.reachable ? "yes" : "no"}</li>
+                  <li>Endpoint: {selectedSnapshotDetail.apiHealth.endpointKind}</li>
+                </ul>
+              ) : (
+                <p>No API health record stored for this snapshot.</p>
+              )}
+            </div>
+
+            <div className="detail-box">
+              <h3>Epoch evidence</h3>
+              {selectedSnapshotDetail.epoch ? (
+                <ul>
+                  <li>Status: {humanStatusLabel(selectedSnapshotDetail.epoch.status)}</li>
+                  <li>Decoder: {humanStatusLabel(selectedSnapshotDetail.epoch.decoderStatus)}</li>
+                  <li>Matched paths: {selectedSnapshotDetail.epoch.matchedFieldPaths.length}</li>
+                </ul>
+              ) : (
+                <p>No epoch record stored for this snapshot.</p>
+              )}
+            </div>
+
+            <div className="detail-box">
+              <h3>Wallet records</h3>
+              {selectedSnapshotDetail.walletSnapshots.length > 0 ? (
+                <div className="detail-table">
+                  {selectedSnapshotDetail.walletSnapshots.map((walletSnapshot) => (
+                    <article key={walletSnapshot.id} className="detail-row">
+                      <strong>{walletSnapshot.walletId}</strong>
+                      <span>{humanStatusLabel(walletSnapshot.status)} · {humanStatusLabel(walletSnapshot.decoderConfidence)}</span>
+                      <small>{walletSnapshot.accountClassification ?? "Not classified"}</small>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p>No wallet snapshot records stored.</p>
+              )}
+            </div>
+
+            <div className="detail-box">
+              <h3>Balance candidates</h3>
+              {selectedSnapshotDetail.balanceCandidates.length > 0 ? (
+                <div className="detail-table">
+                  {selectedSnapshotDetail.balanceCandidates.map((candidate) => (
+                    <article key={candidate.id} className="detail-row">
+                      <strong>{candidate.token}</strong>
+                      <code>{candidate.amountRaw}</code>
+                      <span>{humanStatusLabel(candidate.confidence)}</span>
+                      <small>{candidate.evidencePath ?? candidate.source}</small>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p>No balance candidates stored.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p>No detail loaded.</p>
         )}
       </section>
 
