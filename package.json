@@ -15,7 +15,13 @@
     "test": "echo \"tests not configured yet\"",
     "web:dev": "npm --workspace @watchtower/web run dev",
     "telegram:dev": "npm --workspace @watchtower/telegram run dev",
-    "server:dev": "npm --workspace @watchtower/server run dev"
+    "server:dev": "npm --workspace @watchtower/server run dev",
+    "dev:web": "npm run web:dev",
+    "dev:telegram": "npm run telegram:dev",
+    "dev:server": "npm run server:dev",
+    "smoke:server": "node apps/server/scripts/smoke-test.mjs",
+    "smoke:live": "node apps/server/scripts/live-read-smoke-test.mjs",
+    "test:urls": "node apps/server/scripts/print-test-urls.mjs"
   },
   "keywords": [
     "acki-nacki",
