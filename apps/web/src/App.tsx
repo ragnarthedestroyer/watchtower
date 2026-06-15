@@ -3,6 +3,7 @@ import {
   type ConfigStatusResponse,
   type HealthResponse,
   type LiveSnapshotResponse,
+  type MvpReadinessResponse,
   type RouteCatalogResponse,
   type SnapshotHistoryDetailResponse,
   type SnapshotHistoryResponse,
@@ -20,6 +21,7 @@ type AppData = {
   latestSnapshot: SnapshotResponse["snapshot"];
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  mvpReadiness: MvpReadinessResponse | null;
   snapshotHistory: SnapshotHistoryResponse | null;
   liveSnapshotResult: LiveSnapshotResponse | null;
   notices: string[];
@@ -67,6 +69,7 @@ function EmptyValue() {
 async function loadOptionalServerData(): Promise<{
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  mvpReadiness: MvpReadinessResponse | null;
   snapshotHistory: SnapshotHistoryResponse | null;
   notices: string[];
 }> {
@@ -76,19 +79,22 @@ async function loadOptionalServerData(): Promise<{
     return {
       configStatus: null,
       routes: null,
+      mvpReadiness: null,
       snapshotHistory: null,
       notices: ["Server-only status panels are hidden because the web app is using local demo transport."]
     };
   }
 
-  const [configResult, routeResult, historyResult] = await Promise.allSettled([
+  const [configResult, routeResult, readinessResult, historyResult] = await Promise.allSettled([
     apiClient.getConfigStatus(),
     apiClient.getRoutes(),
+    apiClient.getMvpReadiness(),
     apiClient.getSnapshotHistory({ limit: 10 })
   ]);
 
   const configStatus = configResult.status === "fulfilled" ? configResult.value : null;
   const routes = routeResult.status === "fulfilled" ? routeResult.value : null;
+  const mvpReadiness = readinessResult.status === "fulfilled" ? readinessResult.value : null;
   const snapshotHistory = historyResult.status === "fulfilled" ? historyResult.value : null;
 
   if (configResult.status === "rejected") {
@@ -99,6 +105,10 @@ async function loadOptionalServerData(): Promise<{
     notices.push(`Route catalog could not be loaded: ${routeResult.reason instanceof Error ? routeResult.reason.message : "unknown error"}.`);
   }
 
+  if (readinessResult.status === "rejected") {
+    notices.push(`MVP readiness could not be loaded: ${readinessResult.reason instanceof Error ? readinessResult.reason.message : "unknown error"}.`);
+  }
+
   if (historyResult.status === "rejected") {
     notices.push(`Snapshot history could not be loaded: ${historyResult.reason instanceof Error ? historyResult.reason.message : "unknown error"}.`);
   }
@@ -106,6 +116,7 @@ async function loadOptionalServerData(): Promise<{
   return {
     configStatus,
     routes,
+    mvpReadiness,
     snapshotHistory,
     notices
   };
@@ -177,6 +188,7 @@ export function App() {
           latestSnapshot: snapshotResult.snapshot,
           configStatus: optionalServerData.configStatus,
           routes: optionalServerData.routes,
+          mvpReadiness: optionalServerData.mvpReadiness,
           snapshotHistory: optionalServerData.snapshotHistory,
           liveSnapshotResult: snapshotResult.liveSnapshotResult,
           notices: [...snapshotResult.notices, ...optionalServerData.notices]
@@ -282,7 +294,7 @@ export function App() {
   if (error) return <ErrorPanel message={error} />;
   if (!data) return <LoadingPanel />;
 
-  const { health, watchlists, latestSnapshot, configStatus, snapshotHistory, liveSnapshotResult, notices } = data;
+  const { health, watchlists, latestSnapshot, configStatus, mvpReadiness, snapshotHistory, liveSnapshotResult, notices } = data;
   const snapshotDecision = latestSnapshot.policyDecision ?? health.snapshotPolicy;
   const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
   const serverConnected = apiClientMode === "server";
@@ -363,6 +375,44 @@ export function App() {
             <strong>{liveSnapshotResult ? "Server /snapshots/live" : "Fallback /snapshots/latest"}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="card-label">Readiness</span>
+            <h2>MVP readiness</h2>
+          </div>
+          <StatusBadge
+            label={mvpReadiness ? `${mvpReadiness.summary.done}/${mvpReadiness.summary.total} done` : "Unavailable"}
+            tone={mvpReadiness ? "warning" : "neutral"}
+          />
+        </div>
+
+        {mvpReadiness ? (
+          <>
+            <div className="readiness-summary">
+              <article><span>Done</span><strong>{mvpReadiness.summary.done}</strong></article>
+              <article><span>Partial</span><strong>{mvpReadiness.summary.partial}</strong></article>
+              <article><span>Blocked</span><strong>{mvpReadiness.summary.blocked}</strong></article>
+              <article><span>Not started</span><strong>{mvpReadiness.summary.notStarted}</strong></article>
+            </div>
+            <div className="readiness-list">
+              {mvpReadiness.items.map((item) => (
+                <article key={item.area} className="readiness-item">
+                  <div>
+                    <h3>{item.title}</h3>
+                    <p>{item.summary}</p>
+                    <small>Next: {item.nextStep}</small>
+                  </div>
+                  <StatusBadge label={humanStatusLabel(item.status)} tone={item.status === "done" ? "success" : item.status === "blocked" ? "danger" : item.status === "partial" ? "warning" : "neutral"} />
+                </article>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="muted">MVP readiness is available from the server route <code>/mvp/readiness</code>.</p>
+        )}
       </section>
 
       <section className="panel">

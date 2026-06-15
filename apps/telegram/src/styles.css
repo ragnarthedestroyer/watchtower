@@ -304,3 +304,43 @@ code {
 .state-v2-form {
   grid-template-columns: 1fr;
 }
+
+
+.readiness-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.75rem 0;
+}
+
+.readiness-summary article {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.readiness-summary span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  margin-bottom: 0.25rem;
+}
+
+.readiness-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.readiness-item {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  padding: 0.7rem;
+  background: rgba(2, 6, 23, 0.25);
+}
+
+.readiness-item p {
+  margin: 0.25rem 0 0;
+}

@@ -4,6 +4,7 @@ import {
   type ConfigStatusResponse,
   type HealthResponse,
   type LiveSnapshotResponse,
+  type MvpReadinessResponse,
   type RouteCatalogResponse,
   type SnapshotHistoryDetailResponse,
   type SnapshotHistoryResponse,
@@ -21,6 +22,7 @@ type AppData = {
   latestSnapshot: SnapshotResponse["snapshot"];
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  mvpReadiness: MvpReadinessResponse | null;
   snapshotHistory: SnapshotHistoryResponse | null;
   liveSnapshotResult: LiveSnapshotResponse | null;
   notices: string[];
@@ -66,6 +68,7 @@ function ErrorCard(props: { message: string }) {
 async function loadOptionalServerData(): Promise<{
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  mvpReadiness: MvpReadinessResponse | null;
   snapshotHistory: SnapshotHistoryResponse | null;
   notices: string[];
 }> {
@@ -75,19 +78,22 @@ async function loadOptionalServerData(): Promise<{
     return {
       configStatus: null,
       routes: null,
+      mvpReadiness: null,
       snapshotHistory: null,
       notices: ["Server panels are hidden because the Telegram app is using local demo transport."]
     };
   }
 
-  const [configResult, routeResult, historyResult] = await Promise.allSettled([
+  const [configResult, routeResult, readinessResult, historyResult] = await Promise.allSettled([
     apiClient.getConfigStatus(),
     apiClient.getRoutes(),
+    apiClient.getMvpReadiness(),
     apiClient.getSnapshotHistory({ limit: 5 })
   ]);
 
   const configStatus = configResult.status === "fulfilled" ? configResult.value : null;
   const routes = routeResult.status === "fulfilled" ? routeResult.value : null;
+  const mvpReadiness = readinessResult.status === "fulfilled" ? readinessResult.value : null;
   const snapshotHistory = historyResult.status === "fulfilled" ? historyResult.value : null;
 
   if (configResult.status === "rejected") {
@@ -98,6 +104,10 @@ async function loadOptionalServerData(): Promise<{
     notices.push(`Route catalog could not be loaded: ${routeResult.reason instanceof Error ? routeResult.reason.message : "unknown error"}.`);
   }
 
+  if (readinessResult.status === "rejected") {
+    notices.push(`MVP readiness could not be loaded: ${readinessResult.reason instanceof Error ? readinessResult.reason.message : "unknown error"}.`);
+  }
+
   if (historyResult.status === "rejected") {
     notices.push(`Snapshot history could not be loaded: ${historyResult.reason instanceof Error ? historyResult.reason.message : "unknown error"}.`);
   }
@@ -105,6 +115,7 @@ async function loadOptionalServerData(): Promise<{
   return {
     configStatus,
     routes,
+    mvpReadiness,
     snapshotHistory,
     notices
   };
@@ -176,6 +187,7 @@ export function App() {
           latestSnapshot: snapshotResult.snapshot,
           configStatus: optionalServerData.configStatus,
           routes: optionalServerData.routes,
+          mvpReadiness: optionalServerData.mvpReadiness,
           snapshotHistory: optionalServerData.snapshotHistory,
           liveSnapshotResult: snapshotResult.liveSnapshotResult,
           notices: [...snapshotResult.notices, ...optionalServerData.notices]
@@ -262,7 +274,7 @@ export function App() {
   if (error) return <ErrorCard message={error} />;
   if (!data) return <LoadingCard />;
 
-  const { health, watchlists, latestSnapshot, configStatus, routes, snapshotHistory, liveSnapshotResult, notices } = data;
+  const { health, watchlists, latestSnapshot, configStatus, routes, mvpReadiness, snapshotHistory, liveSnapshotResult, notices } = data;
   const snapshotDecision = latestSnapshot.policyDecision ?? health.snapshotPolicy;
   const demoWatchlist = watchlists[0];
   const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
