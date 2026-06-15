@@ -160,7 +160,7 @@ export function buildWatchtowerRouteCatalog(): WatchtowerRouteCatalog {
       },
 
       {
-        method: "GET",
+        method: "POST",
         path: "/snapshots/live/research-save",
         mode: "live-read",
         description: "POST-only server route that builds a live snapshot and stores it in the in-memory schema store for research/history evidence.",
@@ -176,6 +176,48 @@ export function buildWatchtowerRouteCatalog(): WatchtowerRouteCatalog {
           "Stores research/history evidence only, not confirmed portfolio data.",
           "Blocked snapshots can be stored only with explicit research-save behavior.",
           "In-memory storage resets when the server restarts."
+        ]
+      },
+
+      {
+        method: "GET",
+        path: "/snapshots/history",
+        mode: "server",
+        description: "Returns in-memory snapshot history summaries saved by research-save or future persistence flows.",
+        queryParams: [
+          {
+            name: "watchlist_id",
+            required: false,
+            description: "Optional watchlist ID filter."
+          },
+          {
+            name: "limit",
+            required: false,
+            description: "Optional maximum number of history entries to return. Defaults to 20 and caps at 100."
+          }
+        ],
+        safetyNotes: [
+          "Read-only.",
+          "Shows temporary server memory only until a real database provider exists.",
+          "Research-saved blocked snapshots are not confirmed portfolio data."
+        ]
+      },
+      {
+        method: "GET",
+        path: "/snapshots/history/detail",
+        mode: "server",
+        description: "Returns one persisted in-memory snapshot bundle with wallet snapshots, balance candidates, API health, and epoch evidence.",
+        queryParams: [
+          {
+            name: "snapshot_id",
+            required: true,
+            description: "Snapshot ID returned by /snapshots/history."
+          }
+        ],
+        safetyNotes: [
+          "Read-only.",
+          "Diagnostic/history endpoint.",
+          "Balance candidates remain evidence, not confirmed balances."
         ]
       },
       {

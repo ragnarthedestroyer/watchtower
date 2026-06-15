@@ -10,7 +10,11 @@ import {
   type RawAccountReadRequest
 } from "@watchtower/api";
 import { endpointConfigIsUsableForLiveReads } from "@watchtower/core";
-import { persistSnapshot } from "@watchtower/db";
+import {
+  getSnapshotHistoryDetail,
+  listSnapshotHistory,
+  persistSnapshot
+} from "@watchtower/db";
 import type { ServerEnv } from "./env";
 import { getServerSchemaStore } from "./server-store";
 
@@ -354,6 +358,81 @@ async function liveSnapshotResearchSaveResponse(
   );
 }
 
+function snapshotHistoryLimitFromUrl(url: URL): number {
+  const rawLimit = url.searchParams.get("limit")?.trim();
+
+  if (!rawLimit) {
+    return 20;
+  }
+
+  const parsed = Number.parseInt(rawLimit, 10);
+
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return 20;
+  }
+
+  return Math.min(parsed, 100);
+}
+
+function snapshotHistoryResponse(url: URL, env: ServerEnv): Response {
+  const store = getServerSchemaStore();
+  const watchlistId = url.searchParams.get("watchlist_id")?.trim();
+  const limit = snapshotHistoryLimitFromUrl(url);
+
+  const result = listSnapshotHistory({
+    store,
+    limit,
+    ...(watchlistId ? { watchlistId } : {})
+  });
+
+  return jsonResponse(
+    {
+      ok: result.ok,
+      data: {
+        snapshots: result.data ?? [],
+        storage: {
+          kind: "in-memory",
+          warning: "Snapshot history is temporary and resets when the server restarts."
+        }
+      },
+      errors: result.errors
+    },
+    env,
+    result.ok ? 200 : 400
+  );
+}
+
+function snapshotHistoryDetailResponse(url: URL, env: ServerEnv): Response {
+  const snapshotId = url.searchParams.get("snapshot_id")?.trim();
+
+  if (!snapshotId) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: ["snapshot_id query parameter is required."]
+      },
+      env,
+      400
+    );
+  }
+
+  const store = getServerSchemaStore();
+  const result = getSnapshotHistoryDetail({
+    store,
+    snapshotId
+  });
+
+  return jsonResponse(
+    {
+      ok: result.ok,
+      data: result.data,
+      errors: result.errors
+    },
+    env,
+    result.ok ? 200 : 400
+  );
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -398,6 +477,14 @@ export async function handleServerRequest(
 
   if (request.method === "POST" && path === "/snapshots/live/research-save") {
     return liveSnapshotResearchSaveResponse(url, env);
+  }
+
+  if (request.method === "GET" && path === "/snapshots/history") {
+    return snapshotHistoryResponse(url, env);
+  }
+
+  if (request.method === "GET" && path === "/snapshots/history/detail") {
+    return snapshotHistoryDetailResponse(url, env);
   }
 
   const response = await handleWatchtowerRequest(request, {
