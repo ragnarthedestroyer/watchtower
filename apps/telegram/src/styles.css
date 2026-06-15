@@ -24,6 +24,10 @@ select {
   font: inherit;
 }
 
+code {
+  overflow-wrap: anywhere;
+}
+
 .telegram-shell {
   width: min(100%, 640px);
   margin: 0 auto;
@@ -33,6 +37,7 @@ select {
 .hero-card,
 .runtime-card,
 .warning-card,
+.notice-card,
 .status-row {
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(15, 23, 42, 0.82);
@@ -42,10 +47,16 @@ select {
 
 .hero-card,
 .runtime-card,
-.warning-card {
+.warning-card,
+.notice-card {
   border-radius: 1.25rem;
   padding: 1.25rem;
   margin-bottom: 1rem;
+}
+
+.notice-card {
+  border-color: rgba(250, 204, 21, 0.34);
+  background: rgba(113, 63, 18, 0.2);
 }
 
 .hero-card h1,
@@ -55,7 +66,10 @@ select {
 
 .hero-card p,
 .runtime-card p,
-.warning-card p {
+.warning-card p,
+.notice-card p,
+.warning-card li,
+.notice-card li {
   color: #cbd5e1;
   line-height: 1.55;
 }
@@ -120,4 +134,49 @@ select {
 .badge-neutral {
   background: rgba(148, 163, 184, 0.16);
   color: #e2e8f0;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.mini-grid div,
+.compact-list {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.mini-grid span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin-bottom: 0.45rem;
+}
+
+ul {
+  padding-left: 1.2rem;
+}
+
+li {
+  margin: 0.6rem 0;
+}
+
+@media (max-width: 420px) {
+  .telegram-shell {
+    padding: 0.75rem;
+  }
+
+  .status-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mini-grid {
+    grid-template-columns: 1fr;
+  }
 }
