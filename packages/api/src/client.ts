@@ -3,6 +3,7 @@ import type {
   AccountInspectionResponse,
   ApiResponse,
   ConfigStatusResponse,
+  DecoderResearchReportResponse,
   HealthResponse,
   LiveSnapshotResponse,
   MobileVerifierEpochResponse,
