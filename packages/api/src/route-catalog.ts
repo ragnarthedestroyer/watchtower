@@ -36,6 +36,17 @@ export function buildWatchtowerRouteCatalog(): WatchtowerRouteCatalog {
       },
       {
         method: "GET",
+        path: "/mvp/readiness",
+        mode: "server",
+        description: "Returns the current Watchtower MVP readiness model and summary counts.",
+        safetyNotes: [
+          "Read-only.",
+          "Does not read live chain data.",
+          "Tracks technical readiness, not confirmed production readiness or balance correctness."
+        ]
+      },
+      {
+        method: "GET",
         path: "/health",
         mode: "live-read",
         description: "Returns API trust status using the live endpoint when live-read mode is configured, otherwise demo health.",

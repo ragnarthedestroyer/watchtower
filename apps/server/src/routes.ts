@@ -1,6 +1,7 @@
 import {
   buildLiveHealthResponse,
   buildWatchtowerRouteCatalog,
+  buildWatchtowerMvpReadiness,
   buildLiveSnapshot,
   buildDemoWatchlists,
   handleWatchtowerRequest,
@@ -43,6 +44,17 @@ function routeCatalogResponse(env: ServerEnv): Response {
     {
       ok: true,
       data: buildWatchtowerRouteCatalog(),
+      errors: []
+    },
+    env
+  );
+}
+
+function mvpReadinessResponse(env: ServerEnv): Response {
+  return jsonResponse(
+    {
+      ok: true,
+      data: buildWatchtowerMvpReadiness(),
       errors: []
     },
     env
@@ -453,6 +465,10 @@ export async function handleServerRequest(
 
   if (request.method === "GET" && path === "/config/status") {
     return configStatusResponse(env);
+  }
+
+  if (request.method === "GET" && path === "/mvp/readiness") {
+    return mvpReadinessResponse(env);
   }
 
   if (request.method === "GET" && path === "/health") {
