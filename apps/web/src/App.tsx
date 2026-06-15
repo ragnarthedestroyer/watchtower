@@ -4,6 +4,7 @@ import {
   type HealthResponse,
   type LiveSnapshotResponse,
   type RouteCatalogResponse,
+  type SnapshotHistoryResponse,
   type SnapshotResponse,
   type WatchlistsResponse
 } from "@watchtower/api";
@@ -17,6 +18,7 @@ type AppData = {
   latestSnapshot: SnapshotResponse["snapshot"];
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  snapshotHistory: SnapshotHistoryResponse | null;
   liveSnapshotResult: LiveSnapshotResponse | null;
   notices: string[];
 };
@@ -62,6 +64,7 @@ function EmptyValue() {
 async function loadOptionalServerData(): Promise<{
   configStatus: ConfigStatusResponse | null;
   routes: RouteCatalogResponse | null;
+  snapshotHistory: SnapshotHistoryResponse | null;
   notices: string[];
 }> {
   const notices: string[] = [];
@@ -70,17 +73,20 @@ async function loadOptionalServerData(): Promise<{
     return {
       configStatus: null,
       routes: null,
+      snapshotHistory: null,
       notices: ["Server-only status panels are hidden because the web app is using local demo transport."]
     };
   }
 
-  const [configResult, routeResult] = await Promise.allSettled([
+  const [configResult, routeResult, historyResult] = await Promise.allSettled([
     apiClient.getConfigStatus(),
-    apiClient.getRoutes()
+    apiClient.getRoutes(),
+    apiClient.getSnapshotHistory({ limit: 10 })
   ]);
 
   const configStatus = configResult.status === "fulfilled" ? configResult.value : null;
   const routes = routeResult.status === "fulfilled" ? routeResult.value : null;
+  const snapshotHistory = historyResult.status === "fulfilled" ? historyResult.value : null;
 
   if (configResult.status === "rejected") {
     notices.push(`Config status could not be loaded: ${configResult.reason instanceof Error ? configResult.reason.message : "unknown error"}.`);
@@ -90,9 +96,14 @@ async function loadOptionalServerData(): Promise<{
     notices.push(`Route catalog could not be loaded: ${routeResult.reason instanceof Error ? routeResult.reason.message : "unknown error"}.`);
   }
 
+  if (historyResult.status === "rejected") {
+    notices.push(`Snapshot history could not be loaded: ${historyResult.reason instanceof Error ? historyResult.reason.message : "unknown error"}.`);
+  }
+
   return {
     configStatus,
     routes,
+    snapshotHistory,
     notices
   };
 }
@@ -152,6 +163,7 @@ export function App() {
           latestSnapshot: snapshotResult.snapshot,
           configStatus: optionalServerData.configStatus,
           routes: optionalServerData.routes,
+          snapshotHistory: optionalServerData.snapshotHistory,
           liveSnapshotResult: snapshotResult.liveSnapshotResult,
           notices: [...snapshotResult.notices, ...optionalServerData.notices]
         });
@@ -191,7 +203,7 @@ export function App() {
   if (error) return <ErrorPanel message={error} />;
   if (!data) return <LoadingPanel />;
 
-  const { health, watchlists, latestSnapshot, configStatus, liveSnapshotResult, notices } = data;
+  const { health, watchlists, latestSnapshot, configStatus, snapshotHistory, liveSnapshotResult, notices } = data;
   const snapshotDecision = latestSnapshot.policyDecision ?? health.snapshotPolicy;
   const configHasErrors = Boolean(configStatus && configStatus.errors.length > 0);
   const serverConnected = apiClientMode === "server";
@@ -412,6 +424,64 @@ export function App() {
             </div>
           </div>
         ) : null}
+      </section>
+
+
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="card-label">History</span>
+            <h2>Research snapshot history</h2>
+          </div>
+          <StatusBadge
+            label={snapshotHistory ? `${snapshotHistory.snapshots.length} saved` : "Unavailable"}
+            tone={snapshotHistory ? "success" : "warning"}
+          />
+        </div>
+
+        {snapshotHistory ? (
+          <>
+            <p className="muted">{snapshotHistory.storage.warning}</p>
+            {snapshotHistory.snapshots.length > 0 ? (
+              <div className="history-table">
+                {snapshotHistory.snapshots.map((snapshot) => (
+                  <article key={snapshot.snapshotId} className="history-row">
+                    <div>
+                      <strong>{snapshot.snapshotId}</strong>
+                      <small>{new Date(snapshot.createdAt).toLocaleString()}</small>
+                    </div>
+                    <div>
+                      <span>Policy</span>
+                      <StatusBadge
+                        label={humanStatusLabel(snapshot.policyMode)}
+                        tone={snapshot.safeToSave ? "success" : "warning"}
+                      />
+                    </div>
+                    <div>
+                      <span>Wallets</span>
+                      <strong>{snapshot.walletCount}</strong>
+                      <p>
+                        {snapshot.successfulWallets} ok · {snapshot.partialWallets} partial · {snapshot.failedWallets} failed · {snapshot.skippedWallets} skipped
+                      </p>
+                    </div>
+                    <div>
+                      <span>Blocking reasons</span>
+                      <strong>{snapshot.policyReasonCount}</strong>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>
+                No research snapshots are stored yet. Use the server route
+                <code> POST /snapshots/live/research-save</code> once live-read mode is configured.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="muted">Snapshot history is only available when the web app is connected to the Watchtower server.</p>
+        )}
       </section>
 
       <section className="panel">

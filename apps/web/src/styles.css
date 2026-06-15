@@ -273,3 +273,38 @@ h3 {
     flex-direction: column;
   }
 }
+
+.history-table {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1.4fr 0.8fr;
+  gap: 1rem;
+  align-items: start;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.history-row small,
+.history-row span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.history-row p {
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 980px) {
+  .history-row {
+    grid-template-columns: 1fr;
+  }
+}

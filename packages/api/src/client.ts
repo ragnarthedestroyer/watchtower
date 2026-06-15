@@ -8,6 +8,9 @@ import type {
   MobileVerifierEpochResponse,
   RawAccountResponse,
   RouteCatalogResponse,
+  ResearchSaveLiveSnapshotResponse,
+  SnapshotHistoryDetailResponse,
+  SnapshotHistoryResponse,
   SnapshotResponse,
   WatchlistsResponse
 } from "./types";
@@ -36,6 +39,15 @@ export type LiveSnapshotClientParams = {
   mobileVerifierRootAddress?: string;
 };
 
+export type SnapshotHistoryClientParams = {
+  watchlistId?: string;
+  limit?: number;
+};
+
+export type SnapshotHistoryDetailClientParams = {
+  snapshotId: string;
+};
+
 export type WatchtowerApiClient = {
   getRoutes(): Promise<RouteCatalogResponse>;
   getHealth(): Promise<HealthResponse>;
@@ -46,9 +58,17 @@ export type WatchtowerApiClient = {
   inspectAccount(params: RawAccountClientParams): Promise<AccountInspectionResponse>;
   getMobileVerifierEpoch(params?: MobileVerifierClientParams): Promise<MobileVerifierEpochResponse>;
   getLiveSnapshot(params?: LiveSnapshotClientParams): Promise<LiveSnapshotResponse>;
+  researchSaveLiveSnapshot(params?: LiveSnapshotClientParams): Promise<ResearchSaveLiveSnapshotResponse>;
+  getSnapshotHistory(params?: SnapshotHistoryClientParams): Promise<SnapshotHistoryResponse>;
+  getSnapshotHistoryDetail(params: SnapshotHistoryDetailClientParams): Promise<SnapshotHistoryDetailResponse>;
 };
 
-function buildRequest(path: string, baseUrl: string, params?: URLSearchParams): Request {
+function buildRequest(
+  path: string,
+  baseUrl: string,
+  params?: URLSearchParams,
+  method: "GET" | "POST" = "GET"
+): Request {
   const url = new URL(path, baseUrl);
 
   if (params) {
@@ -60,7 +80,7 @@ function buildRequest(path: string, baseUrl: string, params?: URLSearchParams): 
   }
 
   return new Request(url, {
-    method: "GET",
+    method,
     headers: {
       accept: "application/json"
     }
@@ -80,6 +100,31 @@ function accountSearchParams(params: RawAccountClientParams): URLSearchParams {
 
   if (params.dappId) {
     searchParams.set("dapp_id", params.dappId);
+  }
+
+  return searchParams;
+}
+
+
+function liveSnapshotSearchParams(params: LiveSnapshotClientParams): URLSearchParams {
+  const searchParams = new URLSearchParams();
+
+  if (params.mobileVerifierRootAddress) {
+    searchParams.set("mv_root_address", params.mobileVerifierRootAddress);
+  }
+
+  return searchParams;
+}
+
+function snapshotHistorySearchParams(params: SnapshotHistoryClientParams): URLSearchParams {
+  const searchParams = new URLSearchParams();
+
+  if (params.watchlistId) {
+    searchParams.set("watchlist_id", params.watchlistId);
+  }
+
+  if (params.limit !== undefined) {
+    searchParams.set("limit", String(params.limit));
   }
 
   return searchParams;
@@ -168,14 +213,45 @@ export function createWatchtowerApiClient(
     async getLiveSnapshot(
       params: LiveSnapshotClientParams = {}
     ): Promise<LiveSnapshotResponse> {
-      const searchParams = new URLSearchParams();
-
-      if (params.mobileVerifierRootAddress) {
-        searchParams.set("mv_root_address", params.mobileVerifierRootAddress);
-      }
-
-      const response = await transport(buildRequest("/snapshots/live", baseUrl, searchParams));
+      const response = await transport(
+        buildRequest("/snapshots/live", baseUrl, liveSnapshotSearchParams(params))
+      );
       return readApiJson<LiveSnapshotResponse>(response);
+    },
+
+    async researchSaveLiveSnapshot(
+      params: LiveSnapshotClientParams = {}
+    ): Promise<ResearchSaveLiveSnapshotResponse> {
+      const response = await transport(
+        buildRequest(
+          "/snapshots/live/research-save",
+          baseUrl,
+          liveSnapshotSearchParams(params),
+          "POST"
+        )
+      );
+      return readApiJson<ResearchSaveLiveSnapshotResponse>(response);
+    },
+
+    async getSnapshotHistory(
+      params: SnapshotHistoryClientParams = {}
+    ): Promise<SnapshotHistoryResponse> {
+      const response = await transport(
+        buildRequest("/snapshots/history", baseUrl, snapshotHistorySearchParams(params))
+      );
+      return readApiJson<SnapshotHistoryResponse>(response);
+    },
+
+    async getSnapshotHistoryDetail(
+      params: SnapshotHistoryDetailClientParams
+    ): Promise<SnapshotHistoryDetailResponse> {
+      const searchParams = new URLSearchParams();
+      searchParams.set("snapshot_id", params.snapshotId);
+
+      const response = await transport(
+        buildRequest("/snapshots/history/detail", baseUrl, searchParams)
+      );
+      return readApiJson<SnapshotHistoryDetailResponse>(response);
     }
   };
 }

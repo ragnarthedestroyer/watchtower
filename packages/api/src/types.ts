@@ -10,6 +10,10 @@ import type { RawAccountReadResult } from "./account-reader";
 import type { LiveSnapshotBuildResult } from "./live-snapshot";
 import type { MobileVerifierRootReadResult } from "./mobile-verifier";
 import type { WatchtowerRouteCatalog } from "./route-catalog";
+import type {
+  WatchtowerSnapshotHistoryDetail,
+  WatchtowerSnapshotHistorySummary
+} from "@watchtower/db";
 
 export type ApiResponse<T> = {
   ok: boolean;
@@ -52,6 +56,23 @@ export type MobileVerifierEpochResponse = MobileVerifierRootReadResult;
 export type LiveSnapshotResponse = LiveSnapshotBuildResult;
 
 export type RouteCatalogResponse = WatchtowerRouteCatalog;
+
+export type SnapshotHistoryResponse = {
+  snapshots: WatchtowerSnapshotHistorySummary[];
+  storage: {
+    kind: "in-memory";
+    warning: string;
+  };
+};
+
+export type SnapshotHistoryDetailResponse = WatchtowerSnapshotHistoryDetail | null;
+
+export type ResearchSaveLiveSnapshotResponse = {
+  snapshot: WatchtowerSnapshot;
+  mobileVerifier: LiveSnapshotBuildResult["mobileVerifier"];
+  persistence: unknown;
+  warnings: string[];
+};
 
 export type CreateWatchlistRequest = {
   name: string;
