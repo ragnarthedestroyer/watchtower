@@ -27,6 +27,7 @@ type AppData = {
 };
 
 type Tone = "success" | "warning" | "danger" | "neutral";
+type AccountInspectionMode = "legacy" | "state_v2";
 
 const telegram = initializeTelegramApp();
 
@@ -147,7 +148,10 @@ export function App() {
   const [selectedSnapshotDetail, setSelectedSnapshotDetail] = useState<SnapshotHistoryDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [accountInspectionMode, setAccountInspectionMode] = useState<AccountInspectionMode>("legacy");
   const [accountAddressInput, setAccountAddressInput] = useState("");
+  const [accountIdInput, setAccountIdInput] = useState("");
+  const [dappIdInput, setDappIdInput] = useState("");
   const [accountInspection, setAccountInspection] = useState<AccountInspectionResponse | null>(null);
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionError, setInspectionError] = useState<string | null>(null);
@@ -218,6 +222,8 @@ export function App() {
 
   async function inspectConfiguredAccount() {
     const address = accountAddressInput.trim();
+    const accountId = accountIdInput.trim();
+    const dappId = dappIdInput.trim();
 
     setAccountInspection(null);
     setInspectionError(null);
@@ -227,15 +233,24 @@ export function App() {
       return;
     }
 
-    if (!address) {
+    if (accountInspectionMode === "legacy" && !address) {
       setInspectionError("Enter a legacy address such as 0:<64hex> before inspecting.");
+      return;
+    }
+
+    if (accountInspectionMode === "state_v2" && (!accountId || !dappId)) {
+      setInspectionError("Enter both State V2 account_id and dapp_id before inspecting.");
       return;
     }
 
     setInspectionLoading(true);
 
     try {
-      const inspection = await apiClient.inspectAccount({ address });
+      const inspection = await apiClient.inspectAccount(
+        accountInspectionMode === "legacy"
+          ? { address }
+          : { accountId, dappId }
+      );
       setAccountInspection(inspection);
     } catch (caughtError) {
       setInspectionError(caughtError instanceof Error ? caughtError.message : "Unknown account-inspection error.");
@@ -503,28 +518,74 @@ export function App() {
           tone={accountInspection ? (accountInspection.accountPresent ? "success" : "warning") : "neutral"}
         />
         <p>
-          Inspect a single legacy account through <code>/accounts/inspect</code>. This is research
-          evidence only; raw balances are not confirmed wallet NACKL.
+          Inspect a legacy address or State V2 account_id + dapp_id through <code>/accounts/inspect</code>.
+          This is research evidence only; raw balances are not confirmed wallet NACKL.
         </p>
 
-        <div className="inspect-form">
-          <input
-            className="text-input"
-            type="text"
-            value={accountAddressInput}
-            onChange={(event) => setAccountAddressInput(event.target.value)}
-            placeholder="0:<64hex>"
-            aria-label="Legacy account address"
-          />
+        <div className="mode-toggle" aria-label="Account inspection mode">
           <button
-            className="secondary-button"
+            className={accountInspectionMode === "legacy" ? "pill-button active" : "pill-button"}
             type="button"
-            onClick={() => void inspectConfiguredAccount()}
-            disabled={inspectionLoading}
+            onClick={() => setAccountInspectionMode("legacy")}
           >
-            {inspectionLoading ? "Inspecting…" : "Inspect"}
+            Legacy
+          </button>
+          <button
+            className={accountInspectionMode === "state_v2" ? "pill-button active" : "pill-button"}
+            type="button"
+            onClick={() => setAccountInspectionMode("state_v2")}
+          >
+            State V2
           </button>
         </div>
+
+        {accountInspectionMode === "legacy" ? (
+          <div className="inspect-form">
+            <input
+              className="text-input"
+              type="text"
+              value={accountAddressInput}
+              onChange={(event) => setAccountAddressInput(event.target.value)}
+              placeholder="0:<64hex>"
+              aria-label="Legacy account address"
+            />
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void inspectConfiguredAccount()}
+              disabled={inspectionLoading}
+            >
+              {inspectionLoading ? "Inspecting…" : "Inspect"}
+            </button>
+          </div>
+        ) : (
+          <div className="inspect-form state-v2-form">
+            <input
+              className="text-input"
+              type="text"
+              value={accountIdInput}
+              onChange={(event) => setAccountIdInput(event.target.value)}
+              placeholder="account_id <64hex>"
+              aria-label="State V2 account ID"
+            />
+            <input
+              className="text-input"
+              type="text"
+              value={dappIdInput}
+              onChange={(event) => setDappIdInput(event.target.value)}
+              placeholder="dapp_id <64hex>"
+              aria-label="State V2 DApp ID"
+            />
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void inspectConfiguredAccount()}
+              disabled={inspectionLoading}
+            >
+              {inspectionLoading ? "Inspecting…" : "Inspect"}
+            </button>
+          </div>
+        )}
 
         {inspectionError ? <p className="error-text">{inspectionError}</p> : null}
 
