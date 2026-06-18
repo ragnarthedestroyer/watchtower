@@ -16,3 +16,4 @@ export * from "./token-movement-history-view";
 export * from "./token-movement-telegram-view";
 export * from "./asset-flow-visual-summary";
 export * from "./incident-tracing-report";
+export * from "./token-movement-query";
