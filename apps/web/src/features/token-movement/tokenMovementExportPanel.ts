@@ -21,7 +21,18 @@ export function renderTokenMovementExportPanel(
   options: TokenMovementExportPanelOptions = {},
 ): string {
   const format = options.format ?? "markdown";
-  const bundle = createTokenMovementExportBundle(records, buildExportOptions(options));
+  const bundleOptions: TokenMovementExportOptions = options.generatedAt === undefined
+    ? {
+        title: options.title ?? "Token movement export",
+        scope: options.scope ?? "all",
+      }
+    : {
+        title: options.title ?? "Token movement export",
+        scope: options.scope ?? "all",
+        generatedAt: options.generatedAt,
+      };
+
+  const bundle = createTokenMovementExportBundle(records, bundleOptions);
 
   const body = format === "csv"
     ? renderTokenMovementExportCsv(bundle)
@@ -37,22 +48,6 @@ export function renderTokenMovementExportPanel(
     `  <pre>${escapeHtml(body)}</pre>`,
     "</section>",
   ].join("\n");
-}
-
-function buildExportOptions(options: TokenMovementExportPanelOptions): TokenMovementExportOptions {
-  const base: Omit<TokenMovementExportOptions, "generatedAt"> = {
-    title: options.title ?? "Token movement export",
-    scope: options.scope ?? "all",
-  };
-
-  if (options.generatedAt === undefined) {
-    return base;
-  }
-
-  return {
-    ...base,
-    generatedAt: options.generatedAt,
-  };
 }
 
 function escapeHtml(value: string): string {

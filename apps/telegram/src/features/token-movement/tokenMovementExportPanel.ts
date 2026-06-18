@@ -17,7 +17,18 @@ export function renderTelegramTokenMovementExportPanel(
   records: readonly TokenMovementExportSourceLike[],
   options: TelegramTokenMovementExportPanelOptions = {},
 ): string {
-  const bundle = createTokenMovementExportBundle(records, buildTelegramExportOptions(options));
+  const bundleOptions: TokenMovementExportOptions = options.generatedAt === undefined
+    ? {
+        title: options.title ?? "Token movement export",
+        scope: options.scope ?? "all",
+      }
+    : {
+        title: options.title ?? "Token movement export",
+        scope: options.scope ?? "all",
+        generatedAt: options.generatedAt,
+      };
+
+  const bundle = createTokenMovementExportBundle(records, bundleOptions);
 
   const header = [
     `Watchtower export: ${bundle.title}`,
@@ -35,20 +46,4 @@ export function renderTelegramTokenMovementExportPanel(
 
   if (combined.length <= maxCharacters) return combined;
   return `${combined.slice(0, maxCharacters - 80)}\n\n[truncated] Open the web report or JSON/CSV export for full evidence.`;
-}
-
-function buildTelegramExportOptions(options: TelegramTokenMovementExportPanelOptions): TokenMovementExportOptions {
-  const base: Omit<TokenMovementExportOptions, "generatedAt"> = {
-    title: options.title ?? "Token movement export",
-    scope: options.scope ?? "all",
-  };
-
-  if (options.generatedAt === undefined) {
-    return base;
-  }
-
-  return {
-    ...base,
-    generatedAt: options.generatedAt,
-  };
 }
