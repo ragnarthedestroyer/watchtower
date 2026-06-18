@@ -23,7 +23,7 @@ export function renderTokenMovementExportPanel(
   const bundle = createTokenMovementExportBundle(records, {
     title: options.title ?? "Token movement export",
     scope: options.scope ?? "all",
-    generatedAt: options.generatedAt,
+    ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
   });
 
   const body = format === "csv"
