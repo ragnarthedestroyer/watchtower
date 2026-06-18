@@ -148,17 +148,8 @@ export function getTokenMovementQueryPreset(id: string): TokenMovementQueryPrese
 }
 
 function normalizeTokenMovementQuery(query: TokenMovementQuery, warnings: string[]): TokenMovementQuery {
-  const normalized: TokenMovementQuery = {
-    ...query,
-    sortBy: query.sortBy ?? "observedAtUnix",
-    sortDirection: query.sortDirection ?? "desc",
-    mode: query.mode ?? "all",
-  };
-
   const limit = normalizeNonNegativeInteger(query.limit, "limit", warnings);
   const offset = normalizeNonNegativeInteger(query.offset, "offset", warnings);
-  if (typeof limit === "number") normalized.limit = limit;
-  if (typeof offset === "number") normalized.offset = offset;
 
   if (
     typeof query.observedAfterUnix === "number" &&
@@ -168,7 +159,14 @@ function normalizeTokenMovementQuery(query: TokenMovementQuery, warnings: string
     warnings.push("observedAfterUnix is later than observedBeforeUnix. The query may return no results.");
   }
 
-  return normalized;
+  return {
+    ...query,
+    sortBy: query.sortBy ?? "observedAtUnix",
+    sortDirection: query.sortDirection ?? "desc",
+    mode: query.mode ?? "all",
+    ...(typeof limit === "number" ? { limit } : {}),
+    ...(typeof offset === "number" ? { offset } : {}),
+  };
 }
 
 function normalizeNonNegativeInteger(value: number | undefined, fieldName: string, warnings: string[]): number | undefined {
