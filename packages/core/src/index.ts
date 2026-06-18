@@ -13,3 +13,4 @@ export * from "./known-contract-registry";
 export * from "./transaction-history";
 export * from "./token-movement-normalizer";
 export * from "./token-movement-history-view";
+export * from "./token-movement-telegram-view";
