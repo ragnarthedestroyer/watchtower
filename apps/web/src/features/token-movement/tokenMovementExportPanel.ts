@@ -4,6 +4,7 @@ import {
   renderTokenMovementExportJson,
   renderTokenMovementExportMarkdown,
   type TokenMovementExportFormat,
+  type TokenMovementExportOptions,
   type TokenMovementExportScope,
   type TokenMovementExportSourceLike,
 } from "@watchtower/core";
@@ -20,11 +21,7 @@ export function renderTokenMovementExportPanel(
   options: TokenMovementExportPanelOptions = {},
 ): string {
   const format = options.format ?? "markdown";
-  const bundle = createTokenMovementExportBundle(records, {
-    title: options.title ?? "Token movement export",
-    scope: options.scope ?? "all",
-    ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
-  });
+  const bundle = createTokenMovementExportBundle(records, buildExportOptions(options));
 
   const body = format === "csv"
     ? renderTokenMovementExportCsv(bundle)
@@ -40,6 +37,22 @@ export function renderTokenMovementExportPanel(
     `  <pre>${escapeHtml(body)}</pre>`,
     "</section>",
   ].join("\n");
+}
+
+function buildExportOptions(options: TokenMovementExportPanelOptions): TokenMovementExportOptions {
+  const base: Omit<TokenMovementExportOptions, "generatedAt"> = {
+    title: options.title ?? "Token movement export",
+    scope: options.scope ?? "all",
+  };
+
+  if (options.generatedAt === undefined) {
+    return base;
+  }
+
+  return {
+    ...base,
+    generatedAt: options.generatedAt,
+  };
 }
 
 function escapeHtml(value: string): string {
