@@ -1,5 +1,5 @@
-import type { TokenMovement } from "./token-movement";
-import type { TokenMovementHistoryView, TokenMovementHistoryViewModel } from "./token-movement-history-view";
+import type { TokenMovement, TokenMovementHistory } from "./token-movement";
+import type { TokenMovementHistoryViewModel } from "./token-movement-history-view";
 
 export type TelegramMovementSeverity = "info" | "warning" | "danger";
 
@@ -26,22 +26,23 @@ export interface TelegramTokenMovementViewOptions {
 
 const DEFAULT_MAX_LINES = 8;
 
-function shortAddress(value: string | undefined): string {
+type TelegramCompatibleMovementView = TokenMovementHistory | TokenMovementHistoryViewModel;
+
+function shortAddress(value: string | null | undefined): string {
   if (!value) return "unknown";
   if (value.length <= 18) return value;
   return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
 
 function formatAmount(movement: TokenMovement): string {
-  const token = movement.token.symbol ?? movement.token.kind;
-  if (movement.amount.displayAmount) return `${movement.amount.displayAmount} ${token}`;
-  if (movement.amount.rawAmount) return `${movement.amount.rawAmount} raw ${token}`;
-  return `unknown amount ${token}`;
+  const value = movement.amount.display ?? movement.amount.raw ?? "unknown amount";
+  const token = movement.token.symbol || movement.token.family || movement.amount.unit;
+  return `${value} ${token}`.trim();
 }
 
 function movementSeverity(movement: TokenMovement): TelegramMovementSeverity {
-  if (movement.proof.status === "unproven" || movement.confidence === "low") return "danger";
-  if (movement.proof.status === "partial" || movement.confidence === "medium") return "warning";
+  if (movement.proofStatus === "unknown") return "danger";
+  if (movement.proofStatus === "possible" || movement.proofStatus === "probable") return "warning";
   return "info";
 }
 
@@ -69,11 +70,37 @@ function severityPrefix(severity: TelegramMovementSeverity): string {
   }
 }
 
+function viewMovements(view: TelegramCompatibleMovementView): TokenMovement[] {
+  if ("movements" in view) return [...view.movements];
+  return view.rows.map((row) => ({
+    id: row.id,
+    observedAt: row.observedAt,
+    direction: row.direction,
+    token: { family: row.tokenFamily as TokenMovement["token"]["family"], symbol: row.tokenSymbol, isKnown: row.tokenFamily !== "UNKNOWN" },
+    amount: { raw: null, display: row.amountLabel, decimals: null, unit: row.tokenSymbol, confirmed: row.proofStatus === "confirmed" },
+    from: { address: row.fromAddress, label: row.fromLabel, role: "unknown" },
+    to: { address: row.toAddress, label: row.toLabel, role: "unknown" },
+    via: null,
+    likelyAction: row.likelyAction,
+    summary: row.summary,
+    proofStatus: row.proofStatus,
+    evidence: [],
+    uncertainty: [],
+    warnings: [],
+    tags: row.tags,
+  }));
+}
+
+function viewWarnings(view: TelegramCompatibleMovementView): string[] {
+  if ("movements" in view) return view.warnings;
+  return view.warnings;
+}
+
 export function buildTelegramTokenMovementLine(movement: TokenMovement): TelegramTokenMovementLine {
   const severity = movementSeverity(movement);
   const title = `${directionIcon(movement.direction)} ${formatAmount(movement)}`;
-  const subtitle = `${movement.direction.toUpperCase()} · ${movement.proof.status.toUpperCase()} · ${movement.confidence.toUpperCase()}`;
-  const detail = `From ${shortAddress(movement.from?.address)} to ${shortAddress(movement.to?.address)} · ${movement.explanation.summary}`;
+  const subtitle = `${movement.direction.toUpperCase()} · ${movement.proofStatus.toUpperCase()}`;
+  const detail = `From ${shortAddress(movement.from.address)} to ${shortAddress(movement.to.address)} · ${movement.likelyAction || movement.summary}`;
 
   return {
     id: movement.id,
@@ -85,25 +112,27 @@ export function buildTelegramTokenMovementLine(movement: TokenMovement): Telegra
 }
 
 export function buildTelegramTokenMovementSummary(
-  view: TokenMovementHistoryView | TokenMovementHistoryViewModel,
+  view: TelegramCompatibleMovementView,
   options: TelegramTokenMovementViewOptions = {},
 ): TelegramTokenMovementSummary {
   const maxLines = options.maxLines ?? DEFAULT_MAX_LINES;
-  const movements = "movements" in view ? view.movements : view.visibleMovements;
-  const summary = view.summary;
+  const movements = viewMovements(view);
   const lines = movements.slice(0, maxLines).map(buildTelegramTokenMovementLine);
   const hiddenCount = Math.max(0, movements.length - lines.length);
+  const confirmedCount = movements.filter((movement) => movement.proofStatus === "confirmed").length;
+  const candidateCount = movements.length - confirmedCount;
+  const unresolvedCount = movements.filter((movement) => movement.proofStatus === "unknown").length;
 
-  const warnings: string[] = [];
-  if (summary.unresolvedCount > 0) warnings.push(`${summary.unresolvedCount} unresolved movement(s) need review.`);
-  if (summary.unconfirmedCount > 0) warnings.push(`${summary.unconfirmedCount} movement candidate(s) are not confirmed.`);
+  const warnings = [...viewWarnings(view)];
+  if (unresolvedCount > 0) warnings.push(`${unresolvedCount} unresolved movement(s) need review.`);
+  if (candidateCount > 0) warnings.push(`${candidateCount} movement candidate(s) are not confirmed.`);
   if (hiddenCount > 0) warnings.push(`${hiddenCount} additional movement(s) hidden by Telegram compact view.`);
 
   return {
     title: "Token Movement History",
-    subtitle: `${summary.totalCount} movement(s) · ${summary.confirmedCount} confirmed · ${summary.candidateCount} candidate(s)`,
+    subtitle: `${movements.length} movement(s) · ${confirmedCount} confirmed · ${candidateCount} candidate(s)`,
     lines,
-    warnings,
+    warnings: warnings.filter((item, index, all) => all.indexOf(item) === index),
     footer: options.includeFooter === false
       ? ""
       : "Watchtower is read-only. Unresolved movements are evidence, not proof.",

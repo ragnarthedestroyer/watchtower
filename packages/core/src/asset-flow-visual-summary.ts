@@ -1,6 +1,6 @@
-import type { TokenMovement, TokenMovementDirection, TokenMovementProofStatus } from "./token-movement";
-import type { KnownContractRegistry } from "./known-contract-registry";
-import { createKnownContractLabeler } from "./known-contract-registry";
+import type { TokenMovement, TokenMovementConfidence, TokenMovementDirection } from "./token-movement";
+import type { KnownContractEntry, KnownContractRegistry } from "./known-contract-registry";
+import { labelKnownContractAddress } from "./known-contract-registry";
 
 export type AssetFlowNodeKind =
   | "watch-address"
@@ -15,19 +15,15 @@ export type AssetFlowNodeKind =
   | "contract"
   | "unknown";
 
-export type AssetFlowEdgeStatus =
-  | "confirmed"
-  | "candidate"
-  | "partial"
-  | "unresolved";
+export type AssetFlowEdgeStatus = "confirmed" | "candidate" | "partial" | "unresolved";
 
 export interface AssetFlowNode {
   id: string;
-  address?: string;
+  address: string | undefined;
   label: string;
   shortLabel: string;
   kind: AssetFlowNodeKind;
-  confidence: "high" | "medium" | "low" | "unknown";
+  confidence: TokenMovementConfidence;
   isWatched: boolean;
   warnings: string[];
 }
@@ -41,9 +37,9 @@ export interface AssetFlowEdge {
   movementIds: string[];
   movementCount: number;
   direction: TokenMovementDirection;
-  proofStatus: TokenMovementProofStatus;
+  proofStatus: TokenMovementConfidence;
   status: AssetFlowEdgeStatus;
-  confidence: "high" | "medium" | "low" | "unknown";
+  confidence: TokenMovementConfidence;
   likelyAction: string;
   evidenceSummary: string[];
   warnings: string[];
@@ -52,7 +48,7 @@ export interface AssetFlowEdge {
 export interface AssetFlowVisualSummaryInput {
   movements: TokenMovement[];
   watchedAddresses?: string[];
-  registry?: KnownContractRegistry;
+  registry?: KnownContractRegistry | KnownContractEntry[];
   title?: string;
 }
 
@@ -79,41 +75,98 @@ export interface AssetFlowVisualSummary {
 
 const UNKNOWN_NODE_ID = "node:unknown";
 
+function registryEntries(registry: KnownContractRegistry | KnownContractEntry[] | undefined): KnownContractEntry[] {
+  if (!registry) return [];
+  return Array.isArray(registry) ? registry : registry.entries;
+}
+
+function normalizeAddressKey(address: string | null | undefined): string {
+  return address?.trim().toLowerCase() || UNKNOWN_NODE_ID;
+}
+
+function shortAddress(address: string | null | undefined): string {
+  if (!address) return "unknown";
+  if (address.length <= 18) return address;
+  return `${address.slice(0, 8)}…${address.slice(-6)}`;
+}
+
+function nodeKindFromRole(role: string | undefined): AssetFlowNodeKind {
+  switch (role) {
+    case "wallet":
+    case "token-wallet":
+    case "token-root":
+    case "accumulator":
+    case "bridge":
+    case "dex":
+    case "private-note":
+    case "multifactor":
+    case "contract":
+      return role;
+    default:
+      return "unknown";
+  }
+}
+
+function statusFromProof(proofStatus: TokenMovementConfidence): AssetFlowEdgeStatus {
+  switch (proofStatus) {
+    case "confirmed":
+      return "confirmed";
+    case "probable":
+      return "candidate";
+    case "possible":
+      return "partial";
+    case "unknown":
+    default:
+      return "unresolved";
+  }
+}
+
+function amountText(movement: TokenMovement): string {
+  return `${movement.amount.display ?? movement.amount.raw ?? "unknown amount"} ${movement.amount.unit || movement.token.symbol}`.trim();
+}
+
+function movementWarnings(movement: TokenMovement): string[] {
+  return [
+    ...movement.warnings,
+    ...movement.uncertainty.map((item) => `${item.field}: ${item.reason}`),
+    ...(movement.amount.confirmed ? [] : ["Amount is not confirmed by decoded token evidence."]),
+  ].filter((item, index, all) => all.indexOf(item) === index);
+}
+
+function evidenceSummary(movement: TokenMovement): string[] {
+  return movement.evidence.map((item) => `${item.kind}: ${item.id ?? item.description}`).slice(0, 5);
+}
+
 export function buildAssetFlowVisualSummary(input: AssetFlowVisualSummaryInput): AssetFlowVisualSummary {
+  const entries = registryEntries(input.registry);
   const watched = new Set((input.watchedAddresses ?? []).map(normalizeAddressKey));
-  const labeler = createKnownContractLabeler(input.registry);
   const nodeMap = new Map<string, AssetFlowNode>();
   const edgeMap = new Map<string, AssetFlowEdge>();
   const warnings = new Set<string>();
 
-  const ensureNode = (address: string | undefined, fallback: string): AssetFlowNode => {
-    const key = address ? normalizeAddressKey(address) : UNKNOWN_NODE_ID;
+  const ensureNode = (address: string | null | undefined, fallback: string): AssetFlowNode => {
+    const key = normalizeAddressKey(address);
     const existing = nodeMap.get(key);
     if (existing) return existing;
 
-    const label = address ? labeler.labelAddress(address) : undefined;
+    const label = labelKnownContractAddress(address, entries);
     const isWatched = address ? watched.has(normalizeAddressKey(address)) : false;
-    const kind = isWatched ? "watch-address" : toNodeKind(label?.kind);
-    const nodeWarnings: string[] = [];
+    const nodeWarnings = [...label.warnings];
 
     if (!address) {
       nodeWarnings.push("Address is missing or not decoded from available evidence.");
-      warnings.add("Some flow endpoints are unknown because the source history is incomplete or undecoded.");
-    }
-
-    if (label?.warnings?.length) {
-      nodeWarnings.push(...label.warnings);
+      warnings.add("Some flow endpoints are unknown because source history is incomplete or undecoded.");
     }
 
     const node: AssetFlowNode = {
       id: key,
-      address,
-      label: isWatched ? `Watched address ${shortAddress(address)}` : label?.label ?? fallback,
-      shortLabel: isWatched ? `Watch ${shortAddress(address)}` : label?.shortLabel ?? shortAddress(address ?? "unknown"),
-      kind,
-      confidence: label?.confidence ?? (address ? "unknown" : "low"),
+      address: address ?? undefined,
+      label: isWatched ? `Watched address ${shortAddress(address)}` : label.label ?? fallback,
+      shortLabel: isWatched ? `Watch ${shortAddress(address)}` : label.label ?? shortAddress(address),
+      kind: isWatched ? "watch-address" : nodeKindFromRole(label.role),
+      confidence: label.confidence,
       isWatched,
-      warnings: dedupe(nodeWarnings),
+      warnings: nodeWarnings.filter((item, index, all) => all.indexOf(item) === index),
     };
 
     nodeMap.set(key, node);
@@ -121,62 +174,52 @@ export function buildAssetFlowVisualSummary(input: AssetFlowVisualSummaryInput):
   };
 
   for (const movement of input.movements) {
-    const fromNode = ensureNode(movement.from?.address, "Unknown source");
-    const toNode = ensureNode(movement.to?.address, "Unknown destination");
-    const tokenSymbol = movement.asset.symbol ?? movement.asset.family ?? "UNKNOWN";
-    const amountText = movement.amount.display ?? movement.amount.raw ?? "unknown amount";
-    const edgeKey = [fromNode.id, toNode.id, tokenSymbol, movement.direction, movement.proof.status].join("|");
-    const evidenceSummary = movement.evidence.map((item) => `${item.kind}: ${item.reference}`).filter(Boolean);
-    const movementWarnings = [
-      ...movement.warnings,
-      ...movement.uncertainty.reasons,
-      ...(movement.amount.isApproximate ? ["Amount is approximate or inferred."] : []),
-    ];
-
+    const fromNode = ensureNode(movement.from.address, "Unknown source");
+    const toNode = ensureNode(movement.to.address, "Unknown destination");
+    const tokenSymbol = movement.token.symbol || movement.token.family || "UNKNOWN";
+    const edgeKey = [fromNode.id, toNode.id, tokenSymbol, movement.direction, movement.proofStatus].join("|");
     const existing = edgeMap.get(edgeKey);
+
     if (existing) {
       existing.movementIds.push(movement.id);
       existing.movementCount += 1;
-      existing.evidenceSummary = dedupe([...existing.evidenceSummary, ...evidenceSummary]).slice(0, 8);
-      existing.warnings = dedupe([...existing.warnings, ...movementWarnings]).slice(0, 8);
-      existing.confidence = mergeConfidence(existing.confidence, movement.confidence);
-      existing.status = mergeEdgeStatus(existing.status, toEdgeStatus(movement));
+      existing.warnings = [...existing.warnings, ...movementWarnings(movement)].filter((item, index, all) => all.indexOf(item) === index);
+      existing.evidenceSummary = [...existing.evidenceSummary, ...evidenceSummary(movement)].filter((item, index, all) => all.indexOf(item) === index).slice(0, 5);
       continue;
     }
 
-    const edgeStatus = toEdgeStatus(movement);
-    if (edgeStatus !== "confirmed") {
-      warnings.add("One or more asset-flow edges are candidates or unresolved and must not be treated as proven transfers.");
-    }
+    const status = statusFromProof(movement.proofStatus);
+    if (status !== "confirmed") warnings.add("Asset-flow summary contains candidate or unresolved edges that are not proof.");
 
     edgeMap.set(edgeKey, {
-      id: `edge:${edgeMap.size + 1}`,
+      id: `edge:${edgeKey}`,
       fromNodeId: fromNode.id,
       toNodeId: toNode.id,
       tokenSymbol,
-      amountText,
+      amountText: amountText(movement),
       movementIds: [movement.id],
       movementCount: 1,
       direction: movement.direction,
-      proofStatus: movement.proof.status,
-      status: edgeStatus,
-      confidence: movement.confidence,
-      likelyAction: movement.likelyAction.label,
-      evidenceSummary: evidenceSummary.slice(0, 8),
-      warnings: dedupe(movementWarnings).slice(0, 8),
+      proofStatus: movement.proofStatus,
+      status,
+      confidence: movement.proofStatus,
+      likelyAction: movement.likelyAction,
+      evidenceSummary: evidenceSummary(movement),
+      warnings: movementWarnings(movement),
     });
   }
 
   const edges = [...edgeMap.values()];
+  const nodes = [...nodeMap.values()];
 
   return {
-    title: input.title ?? "Asset flow visual summary",
+    title: input.title ?? "Asset-flow visual summary",
     generatedAtIso: new Date().toISOString(),
-    nodes: [...nodeMap.values()],
+    nodes,
     edges,
     totals: {
       movementCount: input.movements.length,
-      nodeCount: nodeMap.size,
+      nodeCount: nodes.length,
       edgeCount: edges.length,
       confirmedEdges: edges.filter((edge) => edge.status === "confirmed").length,
       candidateEdges: edges.filter((edge) => edge.status === "candidate" || edge.status === "partial").length,
@@ -189,77 +232,4 @@ export function buildAssetFlowVisualSummary(input: AssetFlowVisualSummaryInput):
       doesNotProveUndecodedTransfers: true,
     },
   };
-}
-
-export function renderAssetFlowSummaryText(summary: AssetFlowVisualSummary): string {
-  const lines: string[] = [];
-  lines.push(summary.title);
-  lines.push(`Movements: ${summary.totals.movementCount} | Nodes: ${summary.totals.nodeCount} | Edges: ${summary.totals.edgeCount}`);
-  lines.push(`Confirmed: ${summary.totals.confirmedEdges} | Candidate/partial: ${summary.totals.candidateEdges} | Unresolved: ${summary.totals.unresolvedEdges}`);
-  lines.push("");
-
-  for (const edge of summary.edges) {
-    const from = summary.nodes.find((node) => node.id === edge.fromNodeId)?.shortLabel ?? edge.fromNodeId;
-    const to = summary.nodes.find((node) => node.id === edge.toNodeId)?.shortLabel ?? edge.toNodeId;
-    lines.push(`${edge.tokenSymbol} ${edge.amountText}: ${from} -> ${to}`);
-    lines.push(`  status=${edge.status}; proof=${edge.proofStatus}; confidence=${edge.confidence}; likely=${edge.likelyAction}`);
-    if (edge.warnings.length > 0) lines.push(`  warnings=${edge.warnings.join(" | ")}`);
-  }
-
-  if (summary.warnings.length > 0) {
-    lines.push("");
-    lines.push("Warnings:");
-    for (const warning of summary.warnings) lines.push(`- ${warning}`);
-  }
-
-  lines.push("");
-  lines.push("Read-only summary. Candidate and unresolved edges are not proof of final token movement.");
-  return lines.join("\n");
-}
-
-function toEdgeStatus(movement: TokenMovement): AssetFlowEdgeStatus {
-  if (movement.proof.status === "proven") return "confirmed";
-  if (movement.proof.status === "partial") return "partial";
-  if (movement.proof.status === "unproven" || movement.confidence === "low") return "unresolved";
-  return "candidate";
-}
-
-function mergeEdgeStatus(a: AssetFlowEdgeStatus, b: AssetFlowEdgeStatus): AssetFlowEdgeStatus {
-  const rank: Record<AssetFlowEdgeStatus, number> = { confirmed: 0, candidate: 1, partial: 2, unresolved: 3 };
-  return rank[a] >= rank[b] ? a : b;
-}
-
-function mergeConfidence(a: AssetFlowNode["confidence"], b: AssetFlowNode["confidence"]): AssetFlowNode["confidence"] {
-  const rank: Record<AssetFlowNode["confidence"], number> = { high: 0, medium: 1, low: 2, unknown: 3 };
-  return rank[a] >= rank[b] ? a : b;
-}
-
-function toNodeKind(kind?: string): AssetFlowNodeKind {
-  switch (kind) {
-    case "wallet":
-    case "token-wallet":
-    case "token-root":
-    case "accumulator":
-    case "bridge":
-    case "dex":
-    case "private-note":
-    case "multifactor":
-    case "contract":
-      return kind;
-    default:
-      return "unknown";
-  }
-}
-
-function normalizeAddressKey(address: string): string {
-  return address.trim().toLowerCase();
-}
-
-function shortAddress(address: string): string {
-  if (address.length <= 16) return address;
-  return `${address.slice(0, 8)}…${address.slice(-6)}`;
-}
-
-function dedupe(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
 }

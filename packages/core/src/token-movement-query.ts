@@ -2,9 +2,11 @@ import type {
   TokenMovement,
   TokenMovementConfidence,
   TokenMovementDirection,
-  TokenMovementProofStatus,
-  TokenSymbol,
+  TokenMovementAssetFamily,
 } from "./token-movement";
+
+export type TokenSymbol = string;
+export type TokenMovementProofStatus = TokenMovementConfidence;
 
 export type TokenMovementSortField =
   | "observedAtUnix"
@@ -76,7 +78,7 @@ export const TOKEN_MOVEMENT_QUERY_PRESETS: readonly TokenMovementQueryPreset[] =
     label: "USDC / bridge review",
     description: "Surfaces USDC and TIP-3 candidates that may need bridge or token-root review.",
     query: {
-      tokenSymbols: ["USDC", "TIP-3", "UNKNOWN"],
+      tokenSymbols: ["USDC", "TIP-3", "TIP3", "UNKNOWN"],
       mode: "incident-relevant-only",
       sortBy: "observedAtUnix",
       sortDirection: "desc",
@@ -96,7 +98,6 @@ export function queryTokenMovements(
 ): TokenMovementQueryResult {
   const warnings: string[] = [];
   const normalizedQuery = normalizeTokenMovementQuery(query, warnings);
-
   const filtered = movements.filter((movement) => tokenMovementMatchesQuery(movement, normalizedQuery));
   const sorted = [...filtered].sort((left, right) => compareTokenMovements(left, right, normalizedQuery));
   const offset = normalizedQuery.offset ?? 0;
@@ -117,49 +118,28 @@ export function queryTokenMovements(
 }
 
 export function tokenMovementMatchesQuery(movement: TokenMovement, query: TokenMovementQuery): boolean {
-  if (query.tokenSymbols?.length && !query.tokenSymbols.includes(movement.token.symbol)) {
-    return false;
-  }
+  if (query.tokenSymbols?.length && !matchesTokenSymbol(movement, query.tokenSymbols)) return false;
+  if (query.directions?.length && !query.directions.includes(movement.direction)) return false;
+  if (query.proofStatuses?.length && !query.proofStatuses.includes(movement.proofStatus)) return false;
+  if (query.confidence?.length && !query.confidence.includes(movement.proofStatus)) return false;
+  if (query.addressContains && !movementContainsAddressText(movement, query.addressContains)) return false;
+  if (query.contractAddressContains && !movementContainsContractText(movement, query.contractAddressContains)) return false;
 
-  if (query.directions?.length && !query.directions.includes(movement.direction)) {
-    return false;
-  }
-
-  if (query.proofStatuses?.length && !query.proofStatuses.includes(movement.proof.status)) {
-    return false;
-  }
-
-  if (query.confidence?.length && !query.confidence.includes(movement.confidence)) {
-    return false;
-  }
-
-  if (query.addressContains && !movementContainsAddressText(movement, query.addressContains)) {
-    return false;
-  }
-
-  if (query.contractAddressContains && !movement.contract?.address?.includes(query.contractAddressContains)) {
-    return false;
-  }
-
-  if (typeof query.observedAfterUnix === "number" && movement.observedAtUnix < query.observedAfterUnix) {
-    return false;
-  }
-
-  if (typeof query.observedBeforeUnix === "number" && movement.observedAtUnix > query.observedBeforeUnix) {
-    return false;
-  }
+  const observed = movementObservedAtUnix(movement);
+  if (typeof query.observedAfterUnix === "number" && observed < query.observedAfterUnix) return false;
+  if (typeof query.observedBeforeUnix === "number" && observed > query.observedBeforeUnix) return false;
 
   switch (query.mode ?? "all") {
     case "all":
       return true;
     case "watched-address-only":
-      return movement.involvesWatchedAddress === true;
+      return movement.tags.includes("watched") || movement.via?.label === "observed account";
     case "unresolved-only":
-      return movement.proof.status !== "proven" || movement.confidence === "low" || movement.confidence === "unknown";
+      return movement.proofStatus !== "confirmed";
     case "needs-decoder-only":
-      return movement.decoderStatus !== "decoded" || movement.proof.status === "unproven";
+      return movement.proofStatus !== "confirmed" || movement.uncertainty.length > 0 || movement.tags.includes("decoder-needed");
     case "incident-relevant-only":
-      return movement.tags.includes("incident") || movement.tags.includes("accumulator") || movement.tags.includes("bridge") || movement.tags.includes("usdc") || movement.tags.includes("shell");
+      return ["incident", "accumulator", "bridge", "usdc", "shell"].some((tag) => movement.tags.includes(tag));
   }
 }
 
@@ -168,8 +148,17 @@ export function getTokenMovementQueryPreset(id: string): TokenMovementQueryPrese
 }
 
 function normalizeTokenMovementQuery(query: TokenMovementQuery, warnings: string[]): TokenMovementQuery {
+  const normalized: TokenMovementQuery = {
+    ...query,
+    sortBy: query.sortBy ?? "observedAtUnix",
+    sortDirection: query.sortDirection ?? "desc",
+    mode: query.mode ?? "all",
+  };
+
   const limit = normalizeNonNegativeInteger(query.limit, "limit", warnings);
   const offset = normalizeNonNegativeInteger(query.offset, "offset", warnings);
+  if (typeof limit === "number") normalized.limit = limit;
+  if (typeof offset === "number") normalized.offset = offset;
 
   if (
     typeof query.observedAfterUnix === "number" &&
@@ -179,80 +168,79 @@ function normalizeTokenMovementQuery(query: TokenMovementQuery, warnings: string
     warnings.push("observedAfterUnix is later than observedBeforeUnix. The query may return no results.");
   }
 
-  return {
-    ...query,
-    limit,
-    offset,
-    sortBy: query.sortBy ?? "observedAtUnix",
-    sortDirection: query.sortDirection ?? "desc",
-    mode: query.mode ?? "all",
-  };
+  return normalized;
 }
 
-function normalizeNonNegativeInteger(
-  value: number | undefined,
-  fieldName: string,
-  warnings: string[],
-): number | undefined {
-  if (typeof value !== "number") {
-    return undefined;
-  }
-
+function normalizeNonNegativeInteger(value: number | undefined, fieldName: string, warnings: string[]): number | undefined {
+  if (typeof value !== "number") return undefined;
   if (!Number.isFinite(value) || value < 0) {
     warnings.push(`${fieldName} was ignored because it is not a non-negative finite number.`);
     return undefined;
   }
-
   return Math.floor(value);
+}
+
+function movementObservedAtUnix(movement: TokenMovement): number {
+  if (!movement.observedAt) return 0;
+  const millis = Date.parse(movement.observedAt);
+  return Number.isFinite(millis) ? Math.floor(millis / 1000) : 0;
 }
 
 function compareTokenMovements(left: TokenMovement, right: TokenMovement, query: TokenMovementQuery): number {
   const direction = query.sortDirection === "asc" ? 1 : -1;
   const sortBy = query.sortBy ?? "observedAtUnix";
-
   const leftValue = tokenMovementSortValue(left, sortBy);
   const rightValue = tokenMovementSortValue(right, sortBy);
 
-  if (leftValue < rightValue) {
-    return -1 * direction;
-  }
-
-  if (leftValue > rightValue) {
-    return 1 * direction;
-  }
-
-  return left.id.localeCompare(right.id);
+  if (leftValue < rightValue) return -1 * direction;
+  if (leftValue > rightValue) return 1 * direction;
+  return 0;
 }
 
 function tokenMovementSortValue(movement: TokenMovement, sortBy: TokenMovementSortField): string | number {
   switch (sortBy) {
     case "observedAtUnix":
-      return movement.observedAtUnix;
+      return movementObservedAtUnix(movement);
     case "tokenSymbol":
       return movement.token.symbol;
     case "confidence":
-      return movement.confidence;
     case "proofStatus":
-      return movement.proof.status;
+      return confidenceRank(movement.proofStatus);
     case "direction":
       return movement.direction;
   }
 }
 
-function movementContainsAddressText(movement: TokenMovement, addressText: string): boolean {
-  const needle = addressText.trim().toLowerCase();
-
-  if (!needle) {
-    return true;
+function confidenceRank(confidence: TokenMovementConfidence): number {
+  switch (confidence) {
+    case "confirmed":
+      return 4;
+    case "probable":
+      return 3;
+    case "possible":
+      return 2;
+    case "unknown":
+    default:
+      return 1;
   }
+}
 
-  return [
-    movement.from?.address,
-    movement.to?.address,
-    movement.contract?.address,
-    movement.relatedTransactionId,
-    movement.relatedMessageId,
-  ]
+function matchesTokenSymbol(movement: TokenMovement, tokenSymbols: readonly string[]): boolean {
+  const wanted = new Set(tokenSymbols.map((item) => item.toUpperCase()));
+  const family: TokenMovementAssetFamily = movement.token.family;
+  return wanted.has(movement.token.symbol.toUpperCase()) || wanted.has(family) || (family === "TIP3" && wanted.has("TIP-3"));
+}
+
+function movementContainsAddressText(movement: TokenMovement, needle: string): boolean {
+  const normalized = needle.toLowerCase();
+  return [movement.from.address, movement.to.address, movement.via?.address]
     .filter((value): value is string => Boolean(value))
-    .some((value) => value.toLowerCase().includes(needle));
+    .some((value) => value.toLowerCase().includes(normalized));
+}
+
+function movementContainsContractText(movement: TokenMovement, needle: string): boolean {
+  const normalized = needle.toLowerCase();
+  return [movement.token.rootContract, movement.token.walletContract, movement.via?.address]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes(normalized));
 }

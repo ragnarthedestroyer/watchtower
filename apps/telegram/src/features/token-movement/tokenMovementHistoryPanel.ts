@@ -3,7 +3,7 @@ import {
   renderTelegramTokenMovementSummary,
   type TelegramTokenMovementSummary,
   type TelegramTokenMovementViewOptions,
-  type TokenMovementHistoryView,
+  type TokenMovementHistory,
   type TokenMovementHistoryViewModel,
 } from "@watchtower/core";
 
@@ -13,7 +13,7 @@ export interface TelegramTokenMovementHistoryPanelResult {
 }
 
 export function renderTokenMovementHistoryPanelForTelegram(
-  view: TokenMovementHistoryView | TokenMovementHistoryViewModel,
+  view: TokenMovementHistory | TokenMovementHistoryViewModel,
   options: TelegramTokenMovementViewOptions = {},
 ): TelegramTokenMovementHistoryPanelResult {
   const summary = buildTelegramTokenMovementSummary(view, options);
