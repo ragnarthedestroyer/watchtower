@@ -61,7 +61,7 @@ server.listen(env.port, env.host, () => {
   console.log(`Acki Watchtower server listening on http://${env.host}:${env.port}`);
   console.log(`Runtime mode: ${env.endpointConfig.mode}`);
   console.log(
-    "Available routes: /health, /watchlists, /snapshots/latest, /config/status"
+    "Available routes: /health, /config/status, /accounts/raw, /accounts/inspect, /api/token-movements/live-raw-history, /watchlists, /snapshots/latest"
   );
 
   for (const warning of env.endpointConfig.warnings) {
