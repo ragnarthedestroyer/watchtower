@@ -52,7 +52,7 @@ function tokenMovementLiveRawHistoryRequestFromUrl(
   endpointConfig: WatchtowerEndpointConfig,
 ): TokenMovementLiveRawHistoryRequest | { readonly error: string } {
   const legacyAddress = url.searchParams.get("address")?.trim();
-  const accountId = url.searchParams.get("account_id")?.trim();
+  const requestedAccountId = url.searchParams.get("account_id")?.trim();
   const requestedDappId = url.searchParams.get("dapp_id")?.trim();
   const dappId = requestedDappId || endpointConfig.dappId || undefined;
   const rawLimit = url.searchParams.get("limit")?.trim();
@@ -60,6 +60,20 @@ function tokenMovementLiveRawHistoryRequestFromUrl(
   const includeRawPayloads = url.searchParams.get("include_raw_payloads") === "true";
 
   if (legacyAddress) {
+    const accountIdFromAddress = accountIdFromLegacyAddress(legacyAddress);
+
+    if (accountIdFromAddress && dappId) {
+      return {
+        mode: "state_v2",
+        legacyAddress,
+        accountId: accountIdFromAddress,
+        dappId,
+        network: "mainnet",
+        includeRawPayloads,
+        ...(parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? { limit: parsedLimit } : {}),
+      };
+    }
+
     return {
       mode: "legacy",
       legacyAddress,
@@ -69,20 +83,26 @@ function tokenMovementLiveRawHistoryRequestFromUrl(
     };
   }
 
-  if (!accountId || !dappId) {
+  if (!requestedAccountId || !dappId) {
     return {
-      error: "Token movement live raw history requires either address=0:<64hex> or account_id + dapp_id.",
+      error: "Token movement live raw history requires either address=0:<64hex> or account_id + dapp_id. For live transaction history on State V2 endpoints, dapp_id is required.",
     };
   }
 
   return {
     mode: "state_v2",
-    accountId,
+    accountId: requestedAccountId,
     dappId,
     network: "mainnet",
     includeRawPayloads,
     ...(parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? { limit: parsedLimit } : {}),
   };
+}
+
+function accountIdFromLegacyAddress(address: string): string | null {
+  const trimmed = address.trim().toLowerCase();
+  const match = /^0:([0-9a-f]{64})$/.exec(trimmed);
+  return match?.[1] ?? null;
 }
 
 async function tokenMovementLiveRawHistoryResponse(

@@ -62,18 +62,17 @@ export function buildTokenMovementLiveRawHistoryGraphqlQuery(
       body: {
         query: `
           query WatchtowerTokenMovementStateV2RawHistory($accountId: String!, $dappId: String!, $limit: Int!) {
-            accounts(filter: { account_id: { eq: $accountId }, dapp_id: { eq: $dappId } }) {
-              id
-              account_id
-              dapp_id
-              transactions(last: $limit) {
-                edges {
-                  node {
-                    id
-                    lt
-                    now
-                    in_msg
-                    out_msgs
+            blockchain {
+              account(account_id: { eq: $accountId }, dapp_id: { eq: $dappId }) {
+                transactions(last: $limit) {
+                  edges {
+                    node {
+                      id
+                      lt
+                      now
+                      in_message
+                      out_messages
+                    }
                   }
                 }
               }
@@ -93,18 +92,19 @@ export function buildTokenMovementLiveRawHistoryGraphqlQuery(
     endpoint,
     body: {
       query: `
-        query WatchtowerTokenMovementLegacyRawHistory($address: String!, $limit: Int!) {
+        query WatchtowerTokenMovementLegacyRawHistorySchemaProbe($address: String!) {
           accounts(filter: { id: { eq: $address } }) {
             id
-            transactions(last: $limit) {
-              edges {
-                node {
-                  id
-                  lt
-                  now
-                  in_msg
-                  out_msgs
-                }
+          }
+          accountType: __type(name: "Account") {
+            fields {
+              name
+            }
+          }
+          queryType: __schema {
+            queryType {
+              fields {
+                name
               }
             }
           }
@@ -112,7 +112,6 @@ export function buildTokenMovementLiveRawHistoryGraphqlQuery(
       `,
       variables: {
         address: request.legacyAddress ?? "",
-        limit,
       },
     },
   };
@@ -128,9 +127,15 @@ export async function readLiveTokenMovementRawHistory(
     "Rows returned by this route are raw transaction/message observations, not confirmed decoded token transfers yet.",
   ];
 
+  if (input.request.mode === "legacy") {
+    warnings.push(
+      "Legacy 0:<address> history is now treated as a schema probe unless a DApp ID is supplied. This endpoint appears to require State V2 account_id + dapp_id for transaction history.",
+    );
+  }
+
   const baseRequest = createAccountHistoryRequest({
     identity: {
-      address: input.request.mode === "legacy" ? normalizeHistoryAddress(input.request.legacyAddress ?? null) : null,
+      address: normalizeHistoryAddress(input.request.legacyAddress ?? null),
       dappId: input.request.mode === "state_v2" ? input.request.dappId ?? null : null,
       accountId: input.request.mode === "state_v2" ? input.request.accountId ?? null : null,
       label: "live token movement subject",
@@ -183,6 +188,7 @@ export async function readLiveTokenMovementRawHistory(
       request: baseRequest,
       generatedAt,
       includeRawPayloads: input.request.includeRawPayloads ?? false,
+      requestMode: input.request.mode,
     });
 
     const responseWarnings = [...warnings, ...normalized.warnings];
@@ -198,7 +204,9 @@ export async function readLiveTokenMovementRawHistory(
 
     if (normalized.transactions.length === 0) {
       responseWarnings.push(
-        "No transaction/message records were extracted. The endpoint may use a different history schema, or the account may have no visible history.",
+        input.request.mode === "legacy"
+          ? "No transaction/message records were extracted from the legacy address probe. Provide account_id + dapp_id, or pass dapp_id together with address=0:<64hex>, to attempt the State V2 history path."
+          : "No transaction/message records were extracted. The endpoint may use a different history schema, or the account may have no visible history.",
       );
     }
 
@@ -230,6 +238,7 @@ export function normalizeTokenMovementLiveRawHistoryResponse(input: {
   readonly request: AccountHistoryResponse["request"];
   readonly generatedAt: string;
   readonly includeRawPayloads: boolean;
+  readonly requestMode?: TokenMovementLiveRawHistoryMode;
 }): Pick<AccountHistoryResponse, "transactions" | "warnings"> {
   const warnings: string[] = [];
   const candidates = findTransactionCandidates(input.raw).slice(0, input.request.limit);
@@ -241,6 +250,10 @@ export function normalizeTokenMovementLiveRawHistoryResponse(input: {
     warnings.push(
       "Extracted raw transaction/message candidates from live GraphQL response. Token decoding still needs a dedicated decoder batch.",
     );
+  }
+
+  if (input.requestMode === "legacy") {
+    warnings.push(...describeLegacySchemaProbe(input.raw));
   }
 
   return {
@@ -350,6 +363,52 @@ function extractGraphqlErrors(raw: unknown): string[] {
     if (isRecord(error) && typeof error.message === "string") return error.message;
     return JSON.stringify(error);
   });
+}
+
+function describeLegacySchemaProbe(raw: unknown): string[] {
+  const accountFields = extractNamedFields(raw, "accountType");
+  const queryFields = extractNamedFields(raw, "queryType");
+  const warnings: string[] = [];
+
+  if (accountFields.length > 0 && !accountFields.includes("transactions")) {
+    warnings.push(
+      "GraphQL Account type does not expose a transactions field on the root accounts query. Watchtower will need the State V2 blockchain.account history path for live history.",
+    );
+  }
+
+  if (queryFields.length > 0) {
+    const interestingFields = queryFields
+      .filter((field) => /account|transaction|message|blockchain/i.test(field))
+      .slice(0, 12);
+
+    if (interestingFields.length > 0) {
+      warnings.push(`GraphQL schema probe visible query fields: ${interestingFields.join(", ")}.`);
+    }
+  }
+
+  return warnings;
+}
+
+function extractNamedFields(raw: unknown, marker: "accountType" | "queryType"): string[] {
+  const data = isRecord(raw) && isRecord(raw.data) ? raw.data : null;
+  if (!data) return [];
+
+  if (marker === "accountType") {
+    const accountType = isRecord(data.accountType) ? data.accountType : null;
+    return fieldsToNames(accountType?.fields);
+  }
+
+  const queryTypeRoot = isRecord(data.queryType) ? data.queryType : null;
+  const queryType = isRecord(queryTypeRoot?.queryType) ? queryTypeRoot.queryType : null;
+  return fieldsToNames(queryType?.fields);
+}
+
+function fieldsToNames(fields: unknown): string[] {
+  if (!Array.isArray(fields)) return [];
+
+  return fields
+    .map((field) => (isRecord(field) && typeof field.name === "string" ? field.name : null))
+    .filter((field): field is string => field !== null && field.trim().length > 0);
 }
 
 function findTransactionCandidates(raw: unknown): Record<string, unknown>[] {
