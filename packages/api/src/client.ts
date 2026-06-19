@@ -14,6 +14,7 @@ import type {
   SnapshotHistoryDetailResponse,
   SnapshotHistoryResponse,
   SnapshotResponse,
+  TokenMovementLiveRawHistoryResponse,
   WatchlistsResponse
 } from "./types";
 
@@ -41,6 +42,14 @@ export type LiveSnapshotClientParams = {
   mobileVerifierRootAddress?: string;
 };
 
+export type TokenMovementLiveRawHistoryClientParams = {
+  address?: string;
+  accountId?: string;
+  dappId?: string;
+  limit?: number;
+  includeRawPayloads?: boolean;
+};
+
 export type SnapshotHistoryClientParams = {
   watchlistId?: string;
   limit?: number;
@@ -63,6 +72,7 @@ export type WatchtowerApiClient = {
   getMobileVerifierEpoch(params?: MobileVerifierClientParams): Promise<MobileVerifierEpochResponse>;
   getLiveSnapshot(params?: LiveSnapshotClientParams): Promise<LiveSnapshotResponse>;
   researchSaveLiveSnapshot(params?: LiveSnapshotClientParams): Promise<ResearchSaveLiveSnapshotResponse>;
+  getTokenMovementLiveRawHistory(params: TokenMovementLiveRawHistoryClientParams): Promise<TokenMovementLiveRawHistoryResponse>;
   getSnapshotHistory(params?: SnapshotHistoryClientParams): Promise<SnapshotHistoryResponse>;
   getSnapshotHistoryDetail(params: SnapshotHistoryDetailClientParams): Promise<SnapshotHistoryDetailResponse>;
 };
@@ -115,6 +125,22 @@ function liveSnapshotSearchParams(params: LiveSnapshotClientParams): URLSearchPa
 
   if (params.mobileVerifierRootAddress) {
     searchParams.set("mv_root_address", params.mobileVerifierRootAddress);
+  }
+
+  return searchParams;
+}
+
+function tokenMovementLiveRawHistorySearchParams(
+  params: TokenMovementLiveRawHistoryClientParams
+): URLSearchParams {
+  const searchParams = accountSearchParams(params);
+
+  if (params.limit !== undefined) {
+    searchParams.set("limit", String(params.limit));
+  }
+
+  if (params.includeRawPayloads !== undefined) {
+    searchParams.set("include_raw_payloads", params.includeRawPayloads ? "true" : "false");
   }
 
   return searchParams;
@@ -249,6 +275,19 @@ export function createWatchtowerApiClient(
         )
       );
       return readApiJson<ResearchSaveLiveSnapshotResponse>(response);
+    },
+
+    async getTokenMovementLiveRawHistory(
+      params: TokenMovementLiveRawHistoryClientParams
+    ): Promise<TokenMovementLiveRawHistoryResponse> {
+      const response = await transport(
+        buildRequest(
+          "/api/token-movements/live-raw-history",
+          baseUrl,
+          tokenMovementLiveRawHistorySearchParams(params)
+        )
+      );
+      return readApiJson<TokenMovementLiveRawHistoryResponse>(response);
     },
 
     async getSnapshotHistory(

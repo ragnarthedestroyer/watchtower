@@ -9,7 +9,9 @@ import {
   inspectRawAccountReadResult,
   readLiveMobileVerifierRoot,
   readLiveRawAccount,
-  type RawAccountReadRequest
+  readLiveTokenMovementRawHistory,
+  type RawAccountReadRequest,
+  type TokenMovementLiveRawHistoryRequest
 } from "@watchtower/api";
 import { endpointConfigIsUsableForLiveReads } from "@watchtower/core";
 import {
@@ -484,6 +486,91 @@ function snapshotHistoryDetailResponse(url: URL, env: ServerEnv): Response {
   );
 }
 
+function tokenMovementLiveRawHistoryRequestFromUrl(
+  url: URL,
+  env: ServerEnv
+): TokenMovementLiveRawHistoryRequest | { readonly error: string } {
+  const legacyAddress = url.searchParams.get("address")?.trim();
+  const accountId = url.searchParams.get("account_id")?.trim();
+  const requestedDappId = url.searchParams.get("dapp_id")?.trim();
+  const dappId = requestedDappId || env.endpointConfig.dappId || undefined;
+  const rawLimit = url.searchParams.get("limit")?.trim();
+  const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
+  const includeRawPayloads = url.searchParams.get("include_raw_payloads") === "true";
+
+  if (legacyAddress) {
+    return {
+      mode: "legacy",
+      legacyAddress,
+      network: "mainnet",
+      includeRawPayloads,
+      ...(parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? { limit: parsedLimit } : {})
+    };
+  }
+
+  if (!accountId || !dappId) {
+    return {
+      error: "Token movement live raw history requires either address=0:<64hex> or account_id + dapp_id."
+    };
+  }
+
+  return {
+    mode: "state_v2",
+    accountId,
+    dappId,
+    network: "mainnet",
+    includeRawPayloads,
+    ...(parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? { limit: parsedLimit } : {})
+  };
+}
+
+async function tokenMovementLiveRawHistoryResponse(
+  url: URL,
+  env: ServerEnv
+): Promise<Response> {
+  if (!endpointConfigIsUsableForLiveReads(env.endpointConfig)) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [
+          "Token movement live raw history requires live-read mode and a valid endpoint configuration.",
+          ...env.endpointConfig.errors
+        ]
+      },
+      env,
+      503
+    );
+  }
+
+  const request = tokenMovementLiveRawHistoryRequestFromUrl(url, env);
+
+  if ("error" in request) {
+    return jsonResponse(
+      {
+        ok: false,
+        errors: [request.error]
+      },
+      env,
+      400
+    );
+  }
+
+  const result = await readLiveTokenMovementRawHistory({
+    endpointConfig: env.endpointConfig,
+    request,
+  });
+
+  return jsonResponse(
+    {
+      ok: true,
+      data: result,
+      errors: []
+    },
+    env,
+    200
+  );
+}
+
 export async function handleServerRequest(
   request: Request,
   env: ServerEnv
@@ -522,6 +609,9 @@ export async function handleServerRequest(
     return rawAccountInspectionResponse(url, env);
   }
 
+  if (request.method === "GET" && path === "/api/token-movements/live-raw-history") {
+    return tokenMovementLiveRawHistoryResponse(url, env);
+  }
 
   if (request.method === "GET" && path === "/decoder/research-report") {
     return decoderResearchReportResponse(url, env);

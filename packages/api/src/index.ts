@@ -27,3 +27,4 @@ export * from "./account-classifier";
 export * from "./route-catalog";
 export * from "./mvp-readiness";
 export * from "./decoder-research-report";
+export * from "./live-token-movement-history";

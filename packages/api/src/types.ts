@@ -3,7 +3,8 @@ import type {
   MobileVerifierEpoch,
   SnapshotPolicyDecision,
   Watchlist,
-  WatchtowerSnapshot
+  WatchtowerSnapshot,
+  AccountHistoryResponse
 } from "@watchtower/core";
 import type { AccountInspectionResult } from "./account-inspector";
 import type { RawAccountReadResult } from "./account-reader";
@@ -79,6 +80,8 @@ export type ResearchSaveLiveSnapshotResponse = {
   persistence: unknown;
   warnings: string[];
 };
+
+export type TokenMovementLiveRawHistoryResponse = AccountHistoryResponse;
 
 export type CreateWatchlistRequest = {
   name: string;
