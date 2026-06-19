@@ -638,7 +638,8 @@ export async function handleServerRequest(
   }
 
   const response = await handleWatchtowerRequest(request, {
-    runtime: env.runtime
+    runtime: env.runtime,
+    endpointConfig: env.endpointConfig
   });
 
   const headers = new Headers(response.headers);
