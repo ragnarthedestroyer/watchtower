@@ -21,3 +21,4 @@ export * from "./token-movement-evidence-bundle";
 export * from "./token-movement-export";
 export * from "./token-movement-api-contract";
 export * from "./token-movement-api-stubs";
+export * from "./token-movement-dashboard-sections";
