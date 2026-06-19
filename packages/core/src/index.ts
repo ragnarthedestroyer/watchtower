@@ -38,3 +38,4 @@ export * from "./token-movement-dashboard-visible-demo-entry";
 export * from "./token-movement-live-raw-history-view";
 export * from "./token-movement-live-dashboard-bridge";
 export * from "./token-movement-live-decoder-worklist";
+export * from "./token-movement-dapp-id-diagnostics";

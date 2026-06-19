@@ -20,6 +20,7 @@ import { renderTokenMovementDashboardVisibleDemoEntryPanel } from "./features/to
 import { renderTokenMovementLiveRawHistoryPanel } from "./features/token-movement/tokenMovementLiveRawHistoryPanel";
 import { renderTokenMovementLiveDashboardBridgePanel } from "./features/token-movement/tokenMovementLiveDashboardBridgePanel";
 import { renderTokenMovementLiveDecoderWorklistPanel } from "./features/token-movement/tokenMovementLiveDecoderWorklistPanel";
+import { renderTokenMovementDappIdDiagnosticsPanel } from "./features/token-movement/tokenMovementDappIdDiagnosticsPanel";
 
 type AppData = {
   health: HealthResponse;
@@ -170,6 +171,7 @@ export function App() {
   const [accountAddressInput, setAccountAddressInput] = useState("");
   const [accountIdInput, setAccountIdInput] = useState("");
   const [dappIdInput, setDappIdInput] = useState("");
+  const [multifactorAddressInput, setMultifactorAddressInput] = useState("");
   const [accountInspection, setAccountInspection] = useState<AccountInspectionResponse | null>(null);
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionError, setInspectionError] = useState<string | null>(null);
@@ -220,6 +222,16 @@ export function App() {
   }, []);
 
   const tokenMovementVisibleDemoHtml = useMemo(() => renderTokenMovementDashboardVisibleDemoEntryPanel(), []);
+  const tokenMovementDappIdDiagnosticsHtml = useMemo(() => renderTokenMovementDappIdDiagnosticsPanel({
+    legacyAddress: accountAddressInput.trim(),
+    accountId: accountIdInput.trim(),
+    dappId: dappIdInput.trim(),
+    multifactorAddress: multifactorAddressInput.trim(),
+    response: liveTokenMovementHistory,
+    routeBaseUrl: apiClientBaseUrl,
+    maxBlockers: 6,
+    maxNextSteps: 6,
+  }), [accountAddressInput, accountIdInput, dappIdInput, liveTokenMovementHistory, multifactorAddressInput]);
   const liveTokenMovementHistoryHtml = useMemo(() => {
     if (!liveTokenMovementHistory) return "";
 
@@ -478,6 +490,8 @@ export function App() {
           searched addresses, browser state, or decoded token movement. Results are raw evidence only.
         </p>
 
+        <div dangerouslySetInnerHTML={{ __html: tokenMovementDappIdDiagnosticsHtml }} />
+
         <div className="mode-toggle" aria-label="Live token movement history mode">
           <button
             className={accountInspectionMode === "legacy" ? "pill-button active" : "pill-button"}
@@ -542,6 +556,20 @@ export function App() {
             </button>
           </div>
         )}
+
+        <div className="inspect-form">
+          <input
+            className="text-input"
+            type="text"
+            value={multifactorAddressInput}
+            onChange={(event) => setMultifactorAddressInput(event.target.value)}
+            placeholder="Optional multifactor address 0:<64hex> — not the DApp ID"
+            aria-label="Optional public multifactor address for DApp ID diagnostics"
+          />
+        </div>
+        <p className="muted">
+          The multifactor address can help explain the wallet context, but Watchtower will not treat it as the DApp ID without confirmation.
+        </p>
 
         {liveTokenMovementError ? <p className="error-text">{liveTokenMovementError}</p> : null}
         {liveTokenMovementHistory ? <div dangerouslySetInnerHTML={{ __html: liveTokenMovementHistoryHtml }} /> : null}
