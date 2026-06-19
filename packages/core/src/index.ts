@@ -22,3 +22,4 @@ export * from "./token-movement-export";
 export * from "./token-movement-api-contract";
 export * from "./token-movement-api-stubs";
 export * from "./token-movement-dashboard-sections";
+export * from "./token-movement-on-the-fly-privacy-guard";
