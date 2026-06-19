@@ -24,3 +24,4 @@ export * from "./token-movement-api-stubs";
 export * from "./token-movement-dashboard-sections";
 export * from "./token-movement-on-the-fly-privacy-guard";
 export * from "./token-movement-mining-reward-classifier";
+export * from "./token-movement-direct-transfer-classifier";
