@@ -70,7 +70,6 @@ export function buildTokenMovementLiveRawHistoryGraphqlQuery(
                 edges {
                   node {
                     id
-                    hash
                     lt
                     now
                     in_msg
@@ -95,37 +94,16 @@ export function buildTokenMovementLiveRawHistoryGraphqlQuery(
     body: {
       query: `
         query WatchtowerTokenMovementLegacyRawHistory($address: String!, $limit: Int!) {
-          blockchain {
-            account(address: $address) {
-              info {
-                id
-              }
-              transactions(last: $limit) {
-                edges {
-                  node {
-                    id
-                    hash
-                    lt
-                    now
-                    inMessage {
-                      id
-                      src
-                      dst
-                      value
-                      body
-                      bodyHash
-                    }
-                    outMessages {
-                      id
-                      src
-                      dst
-                      value
-                      body
-                      bodyHash
-                    }
-                    in_msg
-                    out_msgs
-                  }
+          accounts(filter: { id: { eq: $address } }) {
+            id
+            transactions(last: $limit) {
+              edges {
+                node {
+                  id
+                  lt
+                  now
+                  in_msg
+                  out_msgs
                 }
               }
             }
