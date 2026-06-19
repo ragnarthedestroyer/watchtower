@@ -32,3 +32,4 @@ export * from "./token-movement-dashboard-drilldown";
 export * from "./token-movement-dashboard-timeline";
 export * from "./token-movement-dashboard-session-state";
 export * from "./token-movement-dashboard-ux-review";
+export * from "./token-movement-dashboard-demo-preview";
