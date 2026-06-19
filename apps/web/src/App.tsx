@@ -9,6 +9,7 @@ import {
   type SnapshotHistoryResponse,
   type SnapshotResponse,
   type AccountInspectionResponse,
+  type TokenMovementLiveRawHistoryResponse,
   type DecoderResearchReportResponse,
   type WatchlistsResponse
 } from "@watchtower/api";
@@ -16,6 +17,7 @@ import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/co
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 import { apiClient, apiClientBaseUrl, apiClientMode } from "./api-client";
 import { renderTokenMovementDashboardVisibleDemoEntryPanel } from "./features/token-movement/tokenMovementDashboardVisibleDemoEntryPanel";
+import { renderTokenMovementLiveRawHistoryPanel } from "./features/token-movement/tokenMovementLiveRawHistoryPanel";
 
 type AppData = {
   health: HealthResponse;
@@ -172,6 +174,9 @@ export function App() {
   const [decoderResearchReport, setDecoderResearchReport] = useState<DecoderResearchReportResponse | null>(null);
   const [decoderResearchLoading, setDecoderResearchLoading] = useState(false);
   const [decoderResearchError, setDecoderResearchError] = useState<string | null>(null);
+  const [liveTokenMovementHistory, setLiveTokenMovementHistory] = useState<TokenMovementLiveRawHistoryResponse | null>(null);
+  const [liveTokenMovementLoading, setLiveTokenMovementLoading] = useState(false);
+  const [liveTokenMovementError, setLiveTokenMovementError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -213,6 +218,20 @@ export function App() {
   }, []);
 
   const tokenMovementVisibleDemoHtml = useMemo(() => renderTokenMovementDashboardVisibleDemoEntryPanel(), []);
+  const liveTokenMovementHistoryHtml = useMemo(() => {
+    if (!liveTokenMovementHistory) return "";
+
+    const watchedAddress = accountInspectionMode === "legacy"
+      ? accountAddressInput.trim()
+      : accountIdInput.trim();
+
+    return renderTokenMovementLiveRawHistoryPanel(liveTokenMovementHistory, {
+      title: "Live raw token movement history",
+      ...(watchedAddress ? { watchedAddress } : {}),
+      maxRows: 12,
+      maxWarnings: 8,
+    });
+  }, [accountAddressInput, accountIdInput, accountInspectionMode, liveTokenMovementHistory]);
 
   const routeGroups = useMemo(() => {
     if (!data?.routes) return [];
@@ -299,6 +318,46 @@ export function App() {
   }
 
 
+
+  async function loadLiveTokenMovementRawHistory() {
+    const address = accountAddressInput.trim();
+    const accountId = accountIdInput.trim();
+    const dappId = dappIdInput.trim();
+
+    setLiveTokenMovementHistory(null);
+    setLiveTokenMovementError(null);
+
+    if (apiClientMode !== "server") {
+      setLiveTokenMovementError("Live raw token movement history is only available when connected to the Watchtower server.");
+      return;
+    }
+
+    if (accountInspectionMode === "legacy" && !address) {
+      setLiveTokenMovementError("Enter a legacy address such as 0:<64hex> before loading live raw history.");
+      return;
+    }
+
+    if (accountInspectionMode === "state_v2" && (!accountId || !dappId)) {
+      setLiveTokenMovementError("Enter both State V2 account_id and dapp_id before loading live raw history.");
+      return;
+    }
+
+    setLiveTokenMovementLoading(true);
+
+    try {
+      const history = await apiClient.getTokenMovementLiveRawHistory(
+        accountInspectionMode === "legacy"
+          ? { address, limit: 25, includeRawPayloads: false }
+          : { accountId, dappId, limit: 25, includeRawPayloads: false }
+      );
+      setLiveTokenMovementHistory(history);
+    } catch (caughtError) {
+      setLiveTokenMovementError(caughtError instanceof Error ? caughtError.message : "Unknown live raw token movement history error.");
+    } finally {
+      setLiveTokenMovementLoading(false);
+    }
+  }
+
   async function generateDecoderResearchReport() {
     const address = accountAddressInput.trim();
     const accountId = accountIdInput.trim();
@@ -369,6 +428,92 @@ export function App() {
       ) : null}
 
       <div dangerouslySetInnerHTML={{ __html: tokenMovementVisibleDemoHtml }} />
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="card-label">Live token movement</span>
+            <h2>Load live raw transaction history</h2>
+          </div>
+          <StatusBadge
+            label={liveTokenMovementHistory ? "Raw history loaded" : serverConnected ? "Ready" : "Server required"}
+            tone={liveTokenMovementHistory ? "success" : serverConnected ? "neutral" : "warning"}
+          />
+        </div>
+
+        <p className="muted">
+          This reads <code>/api/token-movements/live-raw-history</code> on the fly. It does not store wallet history,
+          searched addresses, browser state, or decoded token movement. Results are raw evidence only.
+        </p>
+
+        <div className="mode-toggle" aria-label="Live token movement history mode">
+          <button
+            className={accountInspectionMode === "legacy" ? "pill-button active" : "pill-button"}
+            type="button"
+            onClick={() => setAccountInspectionMode("legacy")}
+          >
+            Legacy address
+          </button>
+          <button
+            className={accountInspectionMode === "state_v2" ? "pill-button active" : "pill-button"}
+            type="button"
+            onClick={() => setAccountInspectionMode("state_v2")}
+          >
+            State V2
+          </button>
+        </div>
+
+        {accountInspectionMode === "legacy" ? (
+          <div className="inspect-form">
+            <input
+              className="text-input"
+              type="text"
+              value={accountAddressInput}
+              onChange={(event) => setAccountAddressInput(event.target.value)}
+              placeholder="0:<64hex>"
+              aria-label="Legacy address for live raw token movement history"
+            />
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void loadLiveTokenMovementRawHistory()}
+              disabled={liveTokenMovementLoading}
+            >
+              {liveTokenMovementLoading ? "Loading live raw history…" : "Load live raw history"}
+            </button>
+          </div>
+        ) : (
+          <div className="inspect-form state-v2-form">
+            <input
+              className="text-input"
+              type="text"
+              value={accountIdInput}
+              onChange={(event) => setAccountIdInput(event.target.value)}
+              placeholder="account_id <64hex>"
+              aria-label="State V2 account ID for live raw token movement history"
+            />
+            <input
+              className="text-input"
+              type="text"
+              value={dappIdInput}
+              onChange={(event) => setDappIdInput(event.target.value)}
+              placeholder="dapp_id <64hex>"
+              aria-label="State V2 DApp ID for live raw token movement history"
+            />
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void loadLiveTokenMovementRawHistory()}
+              disabled={liveTokenMovementLoading}
+            >
+              {liveTokenMovementLoading ? "Loading live raw history…" : "Load live raw history"}
+            </button>
+          </div>
+        )}
+
+        {liveTokenMovementError ? <p className="error-text">{liveTokenMovementError}</p> : null}
+        {liveTokenMovementHistory ? <div dangerouslySetInnerHTML={{ __html: liveTokenMovementHistoryHtml }} /> : null}
+      </section>
 
       <section className="grid grid-four">
         <article className="card">
