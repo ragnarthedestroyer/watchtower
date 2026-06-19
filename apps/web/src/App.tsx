@@ -19,6 +19,7 @@ import { apiClient, apiClientBaseUrl, apiClientMode } from "./api-client";
 import { renderTokenMovementDashboardVisibleDemoEntryPanel } from "./features/token-movement/tokenMovementDashboardVisibleDemoEntryPanel";
 import { renderTokenMovementLiveRawHistoryPanel } from "./features/token-movement/tokenMovementLiveRawHistoryPanel";
 import { renderTokenMovementLiveDashboardBridgePanel } from "./features/token-movement/tokenMovementLiveDashboardBridgePanel";
+import { renderTokenMovementLiveDecoderWorklistPanel } from "./features/token-movement/tokenMovementLiveDecoderWorklistPanel";
 
 type AppData = {
   health: HealthResponse;
@@ -246,6 +247,21 @@ export function App() {
       ...(watchedAddress ? { watchedAddress } : {}),
       maxRowsPerSection: 6,
       maxWarningsPerSection: 3,
+    });
+  }, [accountAddressInput, accountIdInput, accountInspectionMode, liveTokenMovementHistory]);
+
+  const liveTokenMovementDecoderWorklistHtml = useMemo(() => {
+    if (!liveTokenMovementHistory) return "";
+
+    const watchedAddress = accountInspectionMode === "legacy"
+      ? accountAddressInput.trim()
+      : accountIdInput.trim();
+
+    return renderTokenMovementLiveDecoderWorklistPanel(liveTokenMovementHistory, {
+      title: "Live decoder worklist",
+      ...(watchedAddress ? { watchedAddress } : {}),
+      maxItemsPerSection: 6,
+      maxWarningsPerItem: 3,
     });
   }, [accountAddressInput, accountIdInput, accountInspectionMode, liveTokenMovementHistory]);
 
@@ -530,6 +546,7 @@ export function App() {
         {liveTokenMovementError ? <p className="error-text">{liveTokenMovementError}</p> : null}
         {liveTokenMovementHistory ? <div dangerouslySetInnerHTML={{ __html: liveTokenMovementHistoryHtml }} /> : null}
         {liveTokenMovementHistory ? <div dangerouslySetInnerHTML={{ __html: liveTokenMovementDashboardBridgeHtml }} /> : null}
+        {liveTokenMovementHistory ? <div dangerouslySetInnerHTML={{ __html: liveTokenMovementDecoderWorklistHtml }} /> : null}
       </section>
 
       <section className="grid grid-four">
