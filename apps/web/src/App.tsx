@@ -15,6 +15,7 @@ import {
 import { DEFAULT_WATCHTOWER_CONFIG, formatAccountIdentity } from "@watchtower/core";
 import { apiTrustTone, snapshotDecisionTone, humanStatusLabel } from "@watchtower/ui";
 import { apiClient, apiClientBaseUrl, apiClientMode } from "./api-client";
+import { renderTokenMovementDashboardVisibleDemoEntryPanel } from "./features/token-movement/tokenMovementDashboardVisibleDemoEntryPanel";
 
 type AppData = {
   health: HealthResponse;
@@ -211,6 +212,8 @@ export function App() {
     };
   }, []);
 
+  const tokenMovementVisibleDemoHtml = useMemo(() => renderTokenMovementDashboardVisibleDemoEntryPanel(), []);
+
   const routeGroups = useMemo(() => {
     if (!data?.routes) return [];
 
@@ -364,6 +367,8 @@ export function App() {
           </ul>
         </section>
       ) : null}
+
+      <div dangerouslySetInnerHTML={{ __html: tokenMovementVisibleDemoHtml }} />
 
       <section className="grid grid-four">
         <article className="card">
