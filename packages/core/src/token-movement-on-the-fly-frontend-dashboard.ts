@@ -20,45 +20,45 @@ import {
   type DirectTransferClassifierSourceLike,
 } from "./token-movement-direct-transfer-classifier";
 
-export type TokenMovementFrontendDashboardSourceLike =
+export type TokenMovementOnTheFlyFrontendDashboardSourceLike =
   MiningRewardClassifierSourceLike & DirectTransferClassifierSourceLike;
 
-export type TokenMovementFrontendDashboardSectionId =
+export type TokenMovementOnTheFlyFrontendDashboardSectionId =
   | "nackl-mining-rewards"
   | "direct-transfers-in"
   | "direct-transfers-out"
   | "unresolved-or-routed";
 
-export type TokenMovementFrontendDashboardToken = "NACKL" | "SHELL" | "USDC" | "TIP3" | "UNKNOWN" | "OTHER";
+export type TokenMovementOnTheFlyFrontendDashboardToken = "NACKL" | "SHELL" | "USDC" | "TIP3" | "UNKNOWN" | "OTHER";
 
-export type TokenMovementFrontendDashboardDirection = "in" | "out" | "unknown";
+export type TokenMovementOnTheFlyFrontendDashboardDirection = "in" | "out" | "unknown";
 
-export type TokenMovementFrontendDashboardConfidence = "confirmed" | "probable" | "possible" | "unresolved";
+export type TokenMovementOnTheFlyFrontendDashboardConfidence = "confirmed" | "probable" | "possible" | "unresolved";
 
-export interface TokenMovementFrontendDashboardOptions {
+export interface TokenMovementOnTheFlyFrontendDashboardOptions {
   readonly title?: string;
   readonly generatedAt?: string;
   readonly watchedAddress?: string;
 }
 
-export interface TokenMovementFrontendDashboardRow {
+export interface TokenMovementOnTheFlyFrontendDashboardRow {
   readonly id: string;
-  readonly token: TokenMovementFrontendDashboardToken;
+  readonly token: TokenMovementOnTheFlyFrontendDashboardToken;
   readonly amount: string;
-  readonly direction: TokenMovementFrontendDashboardDirection;
+  readonly direction: TokenMovementOnTheFlyFrontendDashboardDirection;
   readonly from: string;
   readonly to: string;
   readonly observedAt: string;
-  readonly confidence: TokenMovementFrontendDashboardConfidence;
+  readonly confidence: TokenMovementOnTheFlyFrontendDashboardConfidence;
   readonly reason: string;
   readonly warnings: readonly string[];
 }
 
-export interface TokenMovementFrontendDashboardSection {
-  readonly id: TokenMovementFrontendDashboardSectionId;
+export interface TokenMovementOnTheFlyFrontendDashboardSection {
+  readonly id: TokenMovementOnTheFlyFrontendDashboardSectionId;
   readonly title: string;
   readonly description: string;
-  readonly rows: readonly TokenMovementFrontendDashboardRow[];
+  readonly rows: readonly TokenMovementOnTheFlyFrontendDashboardRow[];
   readonly totalRows: number;
   readonly unresolvedRows: number;
   readonly tokenBreakdown: {
@@ -69,12 +69,12 @@ export interface TokenMovementFrontendDashboardSection {
   };
 }
 
-export interface TokenMovementFrontendDashboard {
+export interface TokenMovementOnTheFlyFrontendDashboard {
   readonly title: string;
   readonly generatedAt: string;
   readonly watchedAddress: string;
   readonly mode: "on-the-fly-no-storage";
-  readonly sections: readonly TokenMovementFrontendDashboardSection[];
+  readonly sections: readonly TokenMovementOnTheFlyFrontendDashboardSection[];
   readonly summary: {
     readonly totalInputRows: number;
     readonly visibleRows: number;
@@ -94,9 +94,9 @@ export interface TokenMovementFrontendDashboard {
 }
 
 export function createOnTheFlyTokenMovementFrontendDashboard(
-  records: readonly TokenMovementFrontendDashboardSourceLike[],
-  options: TokenMovementFrontendDashboardOptions = {},
-): TokenMovementFrontendDashboard {
+  records: readonly TokenMovementOnTheFlyFrontendDashboardSourceLike[],
+  options: TokenMovementOnTheFlyFrontendDashboardOptions = {},
+): TokenMovementOnTheFlyFrontendDashboard {
   const generatedAt = options.generatedAt ?? new Date(0).toISOString();
   const miningDashboard = classifyTokenMovementsForMiningRewardDashboard(records, { generatedAt });
   const directDashboard = classifyDirectTransfersForDashboard(records, { generatedAt });
@@ -124,7 +124,7 @@ export function createOnTheFlyTokenMovementFrontendDashboard(
     .filter((row) => !miningRewardIds.includes(row.id))
     .map(normalizeDirectRow);
 
-  const sections: readonly TokenMovementFrontendDashboardSection[] = [
+  const sections: readonly TokenMovementOnTheFlyFrontendDashboardSection[] = [
     createDashboardSection(
       "nackl-mining-rewards",
       "NACKL mining rewards",
@@ -186,7 +186,7 @@ export function createOnTheFlyTokenMovementFrontendDashboard(
 }
 
 export function renderOnTheFlyTokenMovementFrontendDashboardText(
-  dashboard: TokenMovementFrontendDashboard,
+  dashboard: TokenMovementOnTheFlyFrontendDashboard,
 ): string {
   const lines: string[] = [
     dashboard.title,
@@ -230,7 +230,7 @@ export function renderOnTheFlyTokenMovementFrontendDashboardText(
   return lines.join("\n");
 }
 
-function normalizeMiningRow(row: ClassifiedTokenMovementRow): TokenMovementFrontendDashboardRow {
+function normalizeMiningRow(row: ClassifiedTokenMovementRow): TokenMovementOnTheFlyFrontendDashboardRow {
   return {
     id: row.id,
     token: normalizeToken(row.token),
@@ -245,7 +245,7 @@ function normalizeMiningRow(row: ClassifiedTokenMovementRow): TokenMovementFront
   };
 }
 
-function normalizeDirectRow(row: ClassifiedDirectTransferRow): TokenMovementFrontendDashboardRow {
+function normalizeDirectRow(row: ClassifiedDirectTransferRow): TokenMovementOnTheFlyFrontendDashboardRow {
   return {
     id: row.id,
     token: normalizeToken(row.asset),
@@ -261,11 +261,11 @@ function normalizeDirectRow(row: ClassifiedDirectTransferRow): TokenMovementFron
 }
 
 function createDashboardSection(
-  id: TokenMovementFrontendDashboardSectionId,
+  id: TokenMovementOnTheFlyFrontendDashboardSectionId,
   title: string,
   description: string,
-  rows: readonly TokenMovementFrontendDashboardRow[],
-): TokenMovementFrontendDashboardSection {
+  rows: readonly TokenMovementOnTheFlyFrontendDashboardRow[],
+): TokenMovementOnTheFlyFrontendDashboardSection {
   return {
     id,
     title,
@@ -283,13 +283,13 @@ function createDashboardSection(
 }
 
 function countTokenRows(
-  rows: readonly TokenMovementFrontendDashboardRow[],
-  token: TokenMovementFrontendDashboardToken,
+  rows: readonly TokenMovementOnTheFlyFrontendDashboardRow[],
+  token: TokenMovementOnTheFlyFrontendDashboardToken,
 ): number {
   return rows.filter((row) => row.token === token).length;
 }
 
-function normalizeToken(value: string): TokenMovementFrontendDashboardToken {
+function normalizeToken(value: string): TokenMovementOnTheFlyFrontendDashboardToken {
   if (value === "NACKL") return "NACKL";
   if (value === "SHELL") return "SHELL";
   if (value === "USDC") return "USDC";

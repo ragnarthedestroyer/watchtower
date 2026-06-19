@@ -1,7 +1,7 @@
 import {
   createOnTheFlyTokenMovementFrontendDashboard,
-  type TokenMovementFrontendDashboardOptions,
-  type TokenMovementFrontendDashboardSourceLike,
+  type TokenMovementOnTheFlyFrontendDashboardOptions,
+  type TokenMovementOnTheFlyFrontendDashboardSourceLike,
 } from "@watchtower/core";
 
 export interface TokenMovementOnTheFlyFrontendDashboardPanelOptions {
@@ -10,10 +10,10 @@ export interface TokenMovementOnTheFlyFrontendDashboardPanelOptions {
 }
 
 export function renderTokenMovementOnTheFlyFrontendDashboardPanel(
-  records: readonly TokenMovementFrontendDashboardSourceLike[],
+  records: readonly TokenMovementOnTheFlyFrontendDashboardSourceLike[],
   options: TokenMovementOnTheFlyFrontendDashboardPanelOptions = {},
 ): string {
-  const dashboardOptions: TokenMovementFrontendDashboardOptions = {
+  const dashboardOptions: TokenMovementOnTheFlyFrontendDashboardOptions = {
     title: options.title ?? "Token movement dashboard",
     watchedAddress: options.watchedAddress ?? "not provided",
   };

@@ -1,8 +1,8 @@
 import {
   createOnTheFlyTokenMovementFrontendDashboard,
   renderOnTheFlyTokenMovementFrontendDashboardText,
-  type TokenMovementFrontendDashboardOptions,
-  type TokenMovementFrontendDashboardSourceLike,
+  type TokenMovementOnTheFlyFrontendDashboardOptions,
+  type TokenMovementOnTheFlyFrontendDashboardSourceLike,
 } from "@watchtower/core";
 
 export interface TelegramTokenMovementOnTheFlyFrontendDashboardPanelOptions {
@@ -12,10 +12,10 @@ export interface TelegramTokenMovementOnTheFlyFrontendDashboardPanelOptions {
 }
 
 export function renderTelegramTokenMovementOnTheFlyFrontendDashboardPanel(
-  records: readonly TokenMovementFrontendDashboardSourceLike[],
+  records: readonly TokenMovementOnTheFlyFrontendDashboardSourceLike[],
   options: TelegramTokenMovementOnTheFlyFrontendDashboardPanelOptions = {},
 ): string {
-  const dashboardOptions: TokenMovementFrontendDashboardOptions = {
+  const dashboardOptions: TokenMovementOnTheFlyFrontendDashboardOptions = {
     title: options.title ?? "Token movement dashboard",
     watchedAddress: options.watchedAddress ?? "not provided",
   };
