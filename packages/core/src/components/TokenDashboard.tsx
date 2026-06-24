@@ -27,7 +27,8 @@ export const TokenDashboard: React.FC<TokenDashboardProps> = ({ appId, userAddre
     const fetchNetworkData = async () => {
       try {
         const balances = await walletManager.getBalances(userAddress);
-        setRawBalances(balances);
+        // Safely assert the SDK response to match our strict React state
+        setRawBalances(balances as unknown as Record<string, string>);
         setError(null);
       } catch (err: any) {
         console.error('[Dashboard] Failed to fetch balances:', err);

@@ -41,7 +41,7 @@ export class BeeWalletManager {
     );
   }
 
-  async getBalances(multifactorAddress: string): Promise<Record<string, string>> {
+  async getBalances(multifactorAddress: string) {
     const formattedRoots = SUPPORTED_TOKENS.map((token) => ({
       token_root: token.tokenRoot,
       token_dapp: token.tokenDapp // Mandated by v3 API upgrade

@@ -4,5 +4,8 @@
   "private": true,
   "type": "module",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@teamgosh/bee-sdk": "file:vendor/bee-sdk"
+  }
 }

@@ -39,3 +39,5 @@ export * from "./token-movement-live-raw-history-view";
 export * from "./token-movement-live-dashboard-bridge";
 export * from "./token-movement-live-decoder-worklist";
 export * from "./token-movement-dapp-id-diagnostics";
+export * from "./token-movement-dapp-id-diagnostics";
+export * from "./token-movement-state-v2-workbench";

@@ -1,0 +1,15 @@
+{
+  "name": "@teamgosh/bee-sdk",
+  "type": "module",
+  "version": "2.0.0",
+  "files": [
+    "bee_sdk_bg.wasm",
+    "bee_sdk.js",
+    "bee_sdk.d.ts"
+  ],
+  "main": "bee_sdk.js",
+  "types": "bee_sdk.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
